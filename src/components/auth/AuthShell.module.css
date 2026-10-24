@@ -1,0 +1,173 @@
+.shell {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  overflow: hidden;
+}
+
+.videoBg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  background: #090d11;
+}
+
+.video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.videoOverlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, rgba(2, 10, 12, 0.82) 0%, rgba(2, 10, 12, 0.68) 55%, rgba(2, 10, 12, 0.86) 100%);
+}
+
+.themeToggleWrap {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 2;
+}
+
+@media (min-width: 960px) {
+  .shell {
+    padding: 48px;
+  }
+}
+
+.content {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 1180px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 40px;
+}
+
+@media (min-width: 960px) {
+  .content {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 80px;
+  }
+}
+
+.hero {
+  display: none;
+  flex-direction: column;
+  gap: 28px;
+  color: #fff;
+  max-width: 460px;
+}
+
+@media (min-width: 960px) {
+  .hero {
+    display: flex;
+  }
+}
+
+.heroBrand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.heroBrandName {
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+
+.heroHeadline {
+  font-size: 34px;
+  line-height: 1.2;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.heroSubhead {
+  font-size: 15px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.78);
+  margin: 0;
+}
+
+.heroFeatures {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.heroFeature {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 14px;
+  color: #fff;
+}
+
+.heroFeatureIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.heroFooter {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+  margin: 8px 0 0;
+}
+
+.cardWrapper {
+  width: 100%;
+  max-width: 440px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.mobileBrand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+@media (min-width: 960px) {
+  .mobileBrand {
+    display: none;
+  }
+}
+
+.mobileBrandName {
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: -0.02em;
+  color: #fff;
+}

@@ -1,0 +1,1031 @@
+:root {
+  --nx-blue: #0e5266;
+  --nx-blue-light: #157a8f;
+  --nx-emerald: #0f6b5c;
+  --nx-emerald-light: #2a9d86;
+  --nx-navy: #0a275f;
+  --nx-navy-light: #1e3a5f;
+  --nx-teal-dark: #024b52;
+}
+
+.page {
+  position: relative;
+  min-height: 100vh;
+  width: 100%;
+  overflow-x: hidden;
+  background: #090d11;
+  color: var(--text-primary);
+  font-family: inherit;
+}
+
+[data-theme="light"] .page {
+  background: #f7f9fb;
+}
+
+/* ---------- Nav ---------- */
+
+.nav {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 16px clamp(20px, 5vw, 64px);
+}
+
+@media (max-width: 860px) {
+  .nav {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    row-gap: 14px;
+  }
+}
+
+.navBrand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  justify-self: start;
+}
+
+.navLinks {
+  display: flex;
+  align-items: center;
+  justify-self: center;
+  gap: 28px;
+}
+
+.navLink {
+  position: relative;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.78);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.navLink::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -4px;
+  width: 100%;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--nx-emerald-light);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.22s ease;
+}
+
+.navLink:hover {
+  color: #fff;
+}
+
+.navLink:hover::after {
+  transform: scaleX(1);
+}
+
+@media (max-width: 860px) {
+  .navLinks { display: none; }
+}
+
+.navLoginLink {
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+  text-decoration: none;
+  padding: 10px 6px;
+  white-space: nowrap;
+}
+
+.navLoginLink:hover {
+  color: #fff;
+}
+
+.navBrandLockup {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.navBrandName {
+  font-weight: 800;
+  font-size: 20px;
+  letter-spacing: -0.01em;
+  color: #fff;
+}
+
+.navBrandTagline {
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: linear-gradient(100deg, #7db8f0, #6fd4c2);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.navActions {
+  display: flex;
+  align-items: center;
+  justify-self: end;
+  gap: 16px;
+  flex-wrap: wrap;
+  row-gap: 8px;
+  padding-right: 6px;
+}
+
+.navThemeToggleWrap {
+  margin-right: 6px;
+}
+
+@media (max-width: 860px) {
+  .navActions {
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 480px) {
+  .navLoginLink { display: none; }
+  .navBtn { padding: 9px 14px; font-size: 12px; }
+}
+
+.navBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  border: 1px solid transparent;
+  transition: transform 0.15s ease, opacity 0.15s ease, box-shadow 0.2s ease;
+  white-space: nowrap;
+}
+
+.navBtn:hover {
+  transform: translateY(-1px);
+  opacity: 0.92;
+  box-shadow: 0 8px 20px rgba(2, 10, 12, 0.22);
+}
+
+.navBtn:active {
+  transform: translateY(0);
+}
+
+.navBtnCandidate {
+  background: var(--nx-emerald);
+  color: #fff;
+}
+
+.navBtnEmployer {
+  background: var(--nx-blue);
+  color: #fff;
+}
+
+/* ---------- Hero ---------- */
+
+.hero {
+  position: relative;
+  z-index: 1;
+  min-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 108px 24px 80px;
+}
+
+/* Below ~650px the brand row and the toggle/login/role-button row no longer
+   fit side by side and the nav wraps onto two rows — the hero needs enough
+   top padding to clear that taller nav instead of the eyebrow badge sitting
+   underneath it. Above this, .navLinks is already hidden (see 860px query)
+   but everything else still fits on one row, so no extra padding is needed. */
+@media (max-width: 650px) {
+  .hero {
+    padding-top: 190px;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero {
+    padding-top: 220px;
+  }
+}
+
+.heroVideoBg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.heroVideo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.heroVideoOverlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(2, 10, 12, 0.75) 0%, rgba(2, 10, 12, 0.6) 50%, rgba(2, 10, 12, 0.82) 100%);
+}
+
+.heroContent {
+  position: relative;
+  z-index: 1;
+  max-width: 720px;
+  text-align: center;
+  color: #fff;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 28px;
+  animation: eyebrowGlow 3.2s ease-in-out infinite;
+}
+
+@keyframes eyebrowGlow {
+  0%, 100% { box-shadow: 0 0 0 rgba(111, 212, 194, 0); }
+  50% { box-shadow: 0 0 6px rgba(111, 212, 194, 0.3); }
+}
+
+.headline {
+  font-size: clamp(36px, 5vw, 60px);
+  line-height: 1.1;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin: 0 0 22px;
+  color: #fff;
+}
+
+.headlineAccent {
+  display: block;
+  background: linear-gradient(100deg, #7db8f0 0%, #6fd4c2 50%, #7db8f0 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: headlineShimmer 6s linear infinite;
+}
+
+@keyframes headlineShimmer {
+  0% { background-position: 0% center; }
+  100% { background-position: 200% center; }
+}
+
+.subhead {
+  font-size: clamp(15px, 1.6vw, 18px);
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.82);
+  margin: 0 auto 32px;
+  max-width: 560px;
+}
+
+.heroCtas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.ctaPrimary {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 15px 26px;
+  border-radius: 12px;
+  background: var(--nx-emerald);
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  text-decoration: none;
+  overflow: hidden;
+  transition: transform 0.15s ease, opacity 0.15s ease, box-shadow 0.2s ease;
+}
+.ctaPrimary:hover {
+  transform: translateY(-2px);
+  opacity: 0.92;
+  box-shadow: 0 10px 24px rgba(15, 107, 92, 0.4);
+}
+.ctaPrimary::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 20%, rgba(255, 255, 255, 0.32) 50%, transparent 80%);
+  transform: translateX(-120%);
+  transition: transform 0.6s ease;
+}
+.ctaPrimary:hover::before {
+  transform: translateX(120%);
+}
+
+.ctaSecondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 15px 26px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  text-decoration: none;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.ctaSecondary:hover { transform: translateY(-2px); background: rgba(255, 255, 255, 0.18); }
+
+.heroWatchLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.heroWatchIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #fff;
+  flex-shrink: 0;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.heroWatchLink:hover .heroWatchIcon {
+  transform: scale(1.12);
+  box-shadow: 0 0 0 8px rgba(255, 255, 255, 0.14);
+}
+
+.heroSearch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 4px 4px 4px 16px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  backdrop-filter: blur(6px);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.heroSearch input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #fff;
+  font-size: 13.5px;
+  font-family: inherit;
+  padding: 10px 0;
+}
+
+.heroSearch input::placeholder {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.heroSearch button {
+  flex-shrink: 0;
+  padding: 10px 18px;
+  border-radius: 9px;
+  border: none;
+  background: #fff;
+  color: #0a275f;
+  font-weight: 700;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.heroScrollHint {
+  position: absolute;
+  z-index: 1;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  animation: bounceHint 2s ease-in-out infinite;
+}
+
+@keyframes bounceHint {
+  0%, 100% { transform: translate(-50%, 0); }
+  50% { transform: translate(-50%, 8px); }
+}
+
+/* ---------- USP strip ---------- */
+
+.uspStrip {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 14px 16px;
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 36px 24px;
+  border-bottom: 1px solid var(--chrome-border);
+}
+
+.uspItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 22px 8px 8px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--chrome-surface-strong), var(--chrome-surface));
+  border: 1px solid var(--chrome-border);
+  box-shadow: 0 8px 20px rgba(2, 10, 12, 0.06);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.uspItem:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 26px rgba(2, 10, 12, 0.12);
+}
+
+.uspIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 4px 10px rgba(2, 10, 12, 0.25);
+  transition: transform 0.25s ease;
+}
+
+.uspItem:hover .uspIcon {
+  transform: scale(1.1) rotate(-6deg);
+}
+
+.uspItem svg {
+  flex-shrink: 0;
+  color: var(--nx-emerald-light);
+}
+
+/* ---------- Sections (shared) ---------- */
+
+.section {
+  position: relative;
+  z-index: 1;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 56px clamp(20px, 5vw, 64px);
+}
+
+.sectionLabel {
+  display: block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #3b7dc4;
+  margin-bottom: 10px;
+}
+
+.sectionTitle {
+  font-size: clamp(24px, 3vw, 34px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0 0 60px;
+  max-width: 640px;
+}
+
+/* ---------- Feature rows ---------- */
+
+.featureRows {
+  display: flex;
+  flex-direction: column;
+  gap: 96px;
+}
+
+.featureTag {
+  display: inline-block;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+
+.tag_emerald, .tag_blue, .tag_navy {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.featureBullets {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.featureBullets li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+}
+
+.featureBullets li svg {
+  flex-shrink: 0;
+  color: var(--nx-emerald-light);
+}
+
+/* ---------- Browser-chrome showcase grid ---------- */
+
+.showcaseGridNew {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 28px;
+}
+
+@media (max-width: 960px) {
+  .showcaseGridNew { grid-template-columns: 1fr; }
+}
+
+.showcaseCardNew {
+  display: flex;
+  flex-direction: column;
+  border-radius: 18px;
+  padding: 20px;
+  background: var(--chrome-surface);
+  border: 1px solid var(--chrome-border);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.showcaseCardNew:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px rgba(2, 10, 12, 0.14);
+  border-color: var(--nx-emerald-light);
+}
+
+.browserFrame {
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 18px;
+  box-shadow: 0 16px 40px rgba(2, 10, 12, 0.18);
+}
+
+.browserChrome {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 12px;
+  background: #1e293b;
+}
+
+.browserDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.browserUrl {
+  margin-left: 8px;
+  padding: 3px 10px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.browserPhoto {
+  display: block;
+  width: 100%;
+  height: 220px;
+  object-fit: contain;
+  background: #0f172a;
+  transition: transform 0.4s ease;
+}
+
+.showcaseCardNew:hover .browserPhoto {
+  transform: scale(1.045);
+}
+
+.showcaseCardTitle {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin: 0 0 8px;
+  color: var(--text-primary);
+}
+
+.showcaseCardDesc {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  margin: 0 0 16px;
+}
+
+/* ---------- How it works ---------- */
+
+.stepsVideoWrap {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto 36px;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 16px 40px rgba(2, 10, 12, 0.18);
+  background: var(--chrome-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---------- Tutorial ---------- */
+
+.tutorialSubtext {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  max-width: 620px;
+  margin: -8px 0 32px;
+}
+
+.explainerVideoWrap {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 16px 40px rgba(2, 10, 12, 0.18);
+  background: #061b26;
+}
+
+.explainerVideoImg {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+
+.stepsOverviewImg {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 1;
+  object-fit: contain;
+}
+
+.steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+@media (max-width: 860px) {
+  .steps { grid-template-columns: 1fr; }
+}
+
+.step {
+  position: relative;
+  padding: 0;
+}
+
+.stepNumber {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--nx-blue);
+  color: #fff;
+  font-weight: 800;
+  font-size: 15px;
+  margin-bottom: 18px;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.step:hover .stepNumber {
+  transform: scale(1.08) rotate(-4deg);
+  background: var(--nx-blue-light);
+}
+
+.stepPhotoWrap {
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 18px;
+  height: 200px;
+  background: var(--chrome-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stepPhoto {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.stepTitle {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0 0 8px;
+}
+
+.stepTitleNumber {
+  color: var(--nx-blue-light);
+}
+
+.stepDesc {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+.stepConnector {
+  display: none;
+}
+
+@media (min-width: 861px) {
+  .stepConnector {
+    display: block;
+    position: absolute;
+    top: 20px;
+    right: -20px;
+    width: 20px;
+    height: 1px;
+    background: repeating-linear-gradient(90deg, var(--chrome-border) 0 6px, transparent 6px 10px);
+  }
+}
+
+/* ---------- CTA banner ---------- */
+
+.ctaBanner {
+  position: relative;
+  z-index: 1;
+  margin-top: 16px;
+  padding: 48px clamp(20px, 5vw, 64px) 0;
+  background: linear-gradient(120deg, var(--nx-navy), var(--nx-blue), var(--nx-teal-dark), var(--nx-navy));
+  background-size: 300% 300%;
+  animation: ctaGradientShift 14s ease infinite;
+  text-align: center;
+}
+
+@keyframes ctaGradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.ctaBannerTitle {
+  font-size: clamp(26px, 3.4vw, 38px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #fff;
+  margin: 0 0 12px;
+}
+
+.ctaBannerSub {
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.78);
+  margin: 0 0 32px;
+}
+
+.ctaBannerBtns {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px;
+}
+
+.ctaBannerBtnLight {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 15px 26px;
+  border-radius: 12px;
+  background: #fff;
+  color: #0f172a;
+  font-weight: 700;
+  font-size: 14px;
+  text-decoration: none;
+  overflow: hidden;
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+.ctaBannerBtnLight:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+}
+.ctaBannerBtnLight::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 20%, rgba(2, 10, 12, 0.1) 50%, transparent 80%);
+  transform: translateX(-120%);
+  transition: transform 0.6s ease;
+}
+.ctaBannerBtnLight:hover::before {
+  transform: translateX(120%);
+}
+
+.ctaBannerBtnOutline {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 15px 26px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  text-decoration: none;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.ctaBannerBtnOutline:hover { transform: translateY(-2px); background: rgba(255, 255, 255, 0.18); }
+
+/* ---------- Built for ---------- */
+
+.builtForRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.builtForCard {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 20px;
+  border-radius: 16px;
+  background: var(--chrome-surface);
+  border: 1px solid var(--chrome-border);
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.builtForCard:hover {
+  transform: translateY(-2px);
+  border-color: var(--chrome-surface-strong);
+}
+
+.builtForIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  flex-shrink: 0;
+  transition: transform 0.25s ease;
+}
+
+.builtForCard:hover .builtForIcon {
+  transform: scale(1.1) rotate(4deg);
+}
+
+/* ---------- Footer ---------- */
+
+.footer {
+  position: relative;
+  z-index: 1;
+  max-width: 1240px;
+  margin: 36px auto 0;
+  padding: 32px 0 28px;
+  text-align: left;
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.footerTop {
+  display: grid;
+  grid-template-columns: 1.6fr repeat(4, 1fr);
+  gap: 32px;
+  margin-bottom: 32px;
+}
+
+@media (max-width: 860px) {
+  .footerTop {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .footerBrandCol { grid-column: span 2; }
+}
+
+@media (max-width: 480px) {
+  .footerTop { grid-template-columns: 1fr; }
+  .footerBrandCol { grid-column: span 1; }
+}
+
+.footerBrandCol {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.footerTagline {
+  font-size: 13px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.68);
+  margin: 0;
+  max-width: 260px;
+}
+
+.footerLinkCol {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.footerColTitle {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 4px;
+}
+
+.footerLinkCol a {
+  position: relative;
+  display: inline-block;
+  width: fit-content;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.78);
+  text-decoration: none;
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.footerLinkCol a:hover {
+  color: #fff;
+  transform: translateX(3px);
+}
+
+.footerBottom {
+  padding-top: 24px;
+  margin-top: 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.footerText {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.footerBrandName {
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+}
