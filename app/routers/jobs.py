@@ -1,12 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Optional
+
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
-from app import models, schemas
-from app.database import get_db
+from app import models, portfolio, resume_parser, schemas
+from app.database import SessionLocal, get_db
 from app.email import send_application_received_email
+from app.entitlements import enforce_job_limit
 from app.routers.candidates import find_candidate_by_email, find_candidate_ids_by_email
-from app.security import require_candidate, require_employer
+from app.security import parse_uuid_or_404, require_candidate, require_employer
 
 router = APIRouter(tags=["jobs"])
 
@@ -28,7 +31,7 @@ def _get_job(db: Session, job_id: str, organization_id: str | None = None) -> mo
     query = (
         db.query(models.Job)
         .options(joinedload(models.Job.applications), joinedload(models.Job.creator))
-        .filter(models.Job.id == job_id)
+        .filter(models.Job.id == parse_uuid_or_404(job_id, "Job"))
     )
     if organization_id is not None:
         query = query.filter(models.Job.organization_id == organization_id)
@@ -40,7 +43,11 @@ def _get_job(db: Session, job_id: str, organization_id: str | None = None) -> mo
 
 def _job_application_out(application: models.JobApplication) -> schemas.JobApplicationOut:
     application.job_title = application.job.title  # type: ignore[attr-defined]
-    return schemas.JobApplicationOut.model_validate(application)
+    out = schemas.JobApplicationOut.model_validate(application)
+    if out.portfolio_data:
+        # The page text is only for writing interview questions; employers get the summary, not the raw scrape.
+        out.portfolio_data = {k: v for k, v in out.portfolio_data.items() if k != "text"}
+    return out
 
 
 def _get_application(
@@ -49,7 +56,7 @@ def _get_application(
     query = (
         db.query(models.JobApplication)
         .options(joinedload(models.JobApplication.job), joinedload(models.JobApplication.candidate))
-        .filter(models.JobApplication.id == application_id)
+        .filter(models.JobApplication.id == parse_uuid_or_404(application_id, "Application"))
     )
     if organization_id is not None:
         query = query.join(models.Job).filter(models.Job.organization_id == organization_id)
@@ -68,6 +75,7 @@ def create_job(
     employer: models.User = Depends(require_employer),
     db: Session = Depends(get_db),
 ):
+    enforce_job_limit(db, employer.organization_id)
     job = models.Job(
         **payload.model_dump(), created_by=employer.id, organization_id=employer.organization_id
     )
@@ -132,6 +140,7 @@ def list_open_jobs(
                 employment_type=job.employment_type,
                 salary_min=job.salary_min,
                 salary_max=job.salary_max,
+                experience_min_years=job.experience_min_years,
                 created_at=job.created_at,
                 already_applied=applied_status is not None,
                 my_application_status=applied_status,
@@ -178,7 +187,14 @@ def update_job(
     db: Session = Depends(get_db),
 ):
     job = _get_job(db, job_id, employer.organization_id)
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    updates = payload.model_dump(exclude_unset=True)
+    reopening = (
+        job.status in (models.JobStatus.CLOSED, models.JobStatus.FILLED)
+        and updates.get("status") in (models.JobStatus.DRAFT, models.JobStatus.OPEN)
+    )
+    if reopening:
+        enforce_job_limit(db, employer.organization_id)
+    for field, value in updates.items():
         setattr(job, field, value)
     db.commit()
     db.refresh(job)
@@ -276,6 +292,7 @@ def link_candidate_to_job(
 def apply_to_job(
     job_id: str,
     payload: schemas.JobApplyRequest,
+    background_tasks: BackgroundTasks,
     current_user: models.User = Depends(require_candidate),
     db: Session = Depends(get_db),
 ):
@@ -326,8 +343,109 @@ def apply_to_job(
         )
     db.refresh(application)
 
-    send_application_received_email(
+    background_tasks.add_task(
+        send_application_received_email,
         to=candidate.applicant_email, candidate_name=candidate.applicant_name, job_title=job.title
+    )
+    return _job_application_out(application)
+
+
+def _enrich_application(application_id, job_title: str) -> None:
+    """Background half of an application: AI-structure the resume and read the portfolio link. Owns its own
+    DB session. Failures leave the quick, plain-text version in place."""
+    try:
+        # Short sessions around the slow AI / web calls so no pooled connection is held while waiting on them.
+        with SessionLocal() as db:
+            application = db.get(models.JobApplication, application_id)
+            if application is None:
+                return
+            resume_text, resume_data = application.resume_text, application.resume_data
+            filename, link = application.resume_filename or "", application.portfolio_url
+        if resume_text and resume_data:
+            enriched = resume_parser.enrich_with_ai(resume_text, filename, resume_data)
+            with SessionLocal() as db:
+                application = db.get(models.JobApplication, application_id)
+                if application is not None:
+                    application.resume_data = enriched
+                    db.commit()
+        if link:
+            data = portfolio.summarise(portfolio.inspect(link), job_title)
+            with SessionLocal() as db:
+                application = db.get(models.JobApplication, application_id)
+                if application is not None:
+                    application.portfolio_data = data
+                    db.commit()
+    except Exception as exc:  # a background failure must never surface as a crashed worker
+        print(f"[jobs] application enrichment failed for {application_id}: {exc}")
+
+
+@router.post("/jobs/{job_id}/apply/form", response_model=schemas.JobApplicationOut, status_code=status.HTTP_201_CREATED)
+def apply_to_job_with_resume(
+    job_id: str,
+    background_tasks: BackgroundTasks,
+    resume: UploadFile = File(...),
+    cover_letter: Optional[str] = Form(default=None, max_length=3000),
+    phone: Optional[str] = Form(default=None, max_length=40),
+    portfolio_url: Optional[str] = Form(default=None, max_length=500),
+    current_user: models.User = Depends(require_candidate),
+    db: Session = Depends(get_db),
+):
+    """Apply with a Word resume (.doc / .docx) and an optional portfolio link. The resume is read into
+    application-level data shown to the employer, and both feed the questions asked in the bot interview."""
+    job = _get_job(db, job_id)
+    if job.status != models.JobStatus.OPEN:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This job is no longer accepting applications.")
+
+    link: Optional[str] = None
+    if portfolio_url and portfolio_url.strip():
+        try:
+            link = portfolio.normalize_url(portfolio_url)
+            portfolio.assert_public(link)
+        except portfolio.PortfolioLinkError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+    # Plain def: FastAPI runs this in the threadpool, so DNS lookups, docx parsing and DB calls can't stall the event loop.
+    raw = resume.file.read(resume_parser.MAX_UPLOAD_BYTES + 1)
+    try:
+        resume_data, resume_text = resume_parser.parse_resume_quick(resume.filename or "", raw)
+    except resume_parser.ResumeError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+    candidate = find_candidate_by_email(db, current_user.email, str(job.organization_id))
+    if candidate is None:
+        candidate = models.Candidate(
+            applicant_name=current_user.full_name,
+            applicant_email=current_user.email,
+            phone=(phone or "").strip() or None,
+            source="Job Board",
+            organization_id=job.organization_id,
+        )
+        db.add(candidate)
+        db.flush()
+
+    if db.query(models.JobApplication).filter_by(job_id=job.id, candidate_id=candidate.id).first() is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="You've already applied to this job.")
+
+    application = models.JobApplication(
+        job_id=job.id,
+        candidate_id=candidate.id,
+        cover_letter=(cover_letter or "").strip() or None,
+        resume_filename=(resume.filename or "")[:200],
+        resume_data=resume_data,
+        resume_text=resume_text,
+        portfolio_url=link,
+    )
+    db.add(application)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="You've already applied to this job.")
+    db.refresh(application)
+
+    background_tasks.add_task(_enrich_application, application.id, job.title)
+    background_tasks.add_task(
+        send_application_received_email, to=candidate.applicant_email, candidate_name=candidate.applicant_name, job_title=job.title
     )
     return _job_application_out(application)
 

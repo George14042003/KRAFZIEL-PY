@@ -5,3 +5,8 @@ __pycache__/
 .pytest_cache/
 media/recordings/
 media/identity_snapshots/
+
+# uploaded biometric images and server logs are never committed
+media/face_scans/
+*.log
+media/

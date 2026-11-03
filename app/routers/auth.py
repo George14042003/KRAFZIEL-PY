@@ -21,6 +21,7 @@ from app.security import (
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
+_DUMMY_HASH = hash_password("timing-equaliser")
 
 VERIFY_EMAIL_PURPOSE = "verify_email"
 RESET_PASSWORD_PURPOSE = "reset_password"
@@ -107,6 +108,9 @@ def register_employer(
 @router.post("/login", response_model=schemas.TokenResponse)
 def login(payload: schemas.LoginRequest, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.email == payload.email).first()
+    if user is None or user.role != payload.role:
+        # Same bcrypt cost as a real check so response time doesn't reveal which emails exist.
+        verify_password(payload.password, _DUMMY_HASH)
     if (
         user is None
         or user.role != payload.role
@@ -240,6 +244,8 @@ def _fetch_google_display_name(access_token: str, fallback: str) -> str:
 
 @router.post("/google", response_model=schemas.TokenResponse)
 def google_auth(payload: schemas.GoogleAuthRequest, db: Session = Depends(get_db)):
+    if payload.role not in (models.UserRole.CANDIDATE, models.UserRole.EMPLOYER):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Google sign-in is not available for this account type.")
     info = _verify_google_access_token(payload.access_token)
     email = info["email"]
 
@@ -265,13 +271,25 @@ def google_auth(payload: schemas.GoogleAuthRequest, db: Session = Depends(get_db
             organization_id=organization_id,
         )
         db.add(user)
-        db.commit()
+        try:
+            db.commit()
+        except IntegrityError:
+            # A concurrent first sign-in created the account (and maybe its org); tell the client to retry.
+            db.rollback()
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Please try signing in again.")
         db.refresh(user)
     elif user.role != payload.role:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"This email is already registered as a {user.role.value}.",
         )
+    elif not user.is_verified:
+        # Google proved ownership of the address: take over a pre-registered unverified row so any
+        # password set by whoever registered it first stops working.
+        user.hashed_password = hash_password(secrets.token_urlsafe(32))
+        user.is_verified = True
+        db.commit()
+        db.refresh(user)
 
     if user.role == models.UserRole.EMPLOYER and user.organization_id:
         organization = db.get(models.Organization, user.organization_id)

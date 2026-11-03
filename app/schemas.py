@@ -1,8 +1,8 @@
 from datetime import date, datetime
-from typing import List, Literal, Optional
+from typing import Annotated, List, Literal, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, StringConstraints, field_validator
 
 from app.models import (
     AvailabilityStatus,
@@ -38,6 +38,13 @@ class LoginRequest(BaseModel):
 class GoogleAuthRequest(BaseModel):
     role: UserRole
     access_token: str
+
+    @field_validator("role")
+    @classmethod
+    def _no_privileged_role(cls, v: UserRole) -> UserRole:
+        if v not in (UserRole.CANDIDATE, UserRole.EMPLOYER):
+            raise ValueError("Google sign-in is only available for candidate and employer accounts.")
+        return v
 
 
 class UserOut(BaseModel):
@@ -152,6 +159,7 @@ class CandidateOut(BaseModel):
     offer_count: int = 0
     created_by_name: Optional[str] = None
     created_by_email: Optional[str] = None
+    has_account: bool = False
 
     class Config:
         from_attributes = True
@@ -237,7 +245,66 @@ class OfferOut(BaseModel):
         from_attributes = True
 
 
+# --- Digital twin (God level interviews); mirrors the frontend's avatarTypes.ts ---
+
+HexColor = Annotated[str, StringConstraints(pattern=r"^#[0-9a-fA-F]{6}$")]
+FaceFactor = Annotated[float, Field(ge=0.75, le=1.25)]
+InterviewTier = Literal["standard", "god"]
+
+
+class AvatarFace(BaseModel):
+    width: FaceFactor
+    height: FaceFactor
+    jaw: FaceFactor
+    eyeSpacing: FaceFactor
+    mouthWidth: FaceFactor
+    noseWidth: FaceFactor
+    browHeight: FaceFactor
+
+
+AVATAR_MESH_LENGTH = 468 * 3
+
+
+class AvatarParams(BaseModel):
+    version: Literal[1]
+    skin: HexColor
+    hair: HexColor
+    eyes: HexColor
+    shirt: HexColor
+    hairStyle: Literal["bald", "buzz", "short", "medium", "long", "bun"]
+    facialHair: Literal["none", "stubble", "beard"]
+    glasses: bool
+    face: AvatarFace
+    # The scanned face's 468 landmarks as a flat [x, y, z, ...] list (cheek width = 1.0).
+    mesh: Optional[List[float]] = None
+
+    @field_validator("mesh")
+    @classmethod
+    def _check_mesh(cls, v):
+        if v is None:
+            return v
+        if len(v) != AVATAR_MESH_LENGTH or any(abs(n) > 3 for n in v):
+            raise ValueError("mesh must be 468 landmarks (1404 numbers) within [-3, 3]")
+        return v
+
+
+class AvatarProfileOut(BaseModel):
+    params: Optional[AvatarParams] = None
+    consent_at: Optional[datetime] = None
+
+
+class AvatarProfileIn(BaseModel):
+    params: AvatarParams
+    consent: bool
+
+
+class FaceScanShot(BaseModel):
+    angle: str
+    url: str
+
+
 class InterviewCreate(BaseModel):
+    tier: InterviewTier = "standard"
     scheduled_at: datetime
     duration_minutes: int = Field(default=30, ge=5, le=480)
     interview_type: InterviewType = InterviewType.PHONE
@@ -249,6 +316,7 @@ class InterviewCreate(BaseModel):
 
 
 class InterviewUpdate(BaseModel):
+    tier: Optional[InterviewTier] = None
     scheduled_at: Optional[datetime] = None
     duration_minutes: Optional[int] = Field(default=None, ge=5, le=480)
     interview_type: Optional[InterviewType] = None
@@ -276,9 +344,15 @@ class InterviewOut(BaseModel):
     ai_evaluation: Optional[dict] = None
     recording_urls: Optional[List[str]] = None
     availability_status: AvailabilityStatus
+    availability_responded_at: Optional[datetime] = None
+    candidate_name: Optional[str] = None
+    candidate_has_account: bool = False
     consent_accepted: bool
     consent_given_at: Optional[datetime] = None
     identity_snapshot_url: Optional[str] = None
+    tier: InterviewTier = "standard"
+    face_scan_urls: Optional[List[FaceScanShot]] = None
+    face_scan_done: bool = False
     employer_feedback: Optional[str] = None
     employer_rating: Optional[int] = None
     created_at: datetime
@@ -290,11 +364,11 @@ class InterviewOut(BaseModel):
 
 class CallTranscriptTurn(BaseModel):
     speaker: Literal["candidate", "employer"]
-    text: str
+    text: str = Field(max_length=4000)
 
 
 class CallEvaluationRequest(BaseModel):
-    transcript: List[CallTranscriptTurn]
+    transcript: List[CallTranscriptTurn] = Field(max_length=1000)
 
 
 class AvailabilityOut(BaseModel):
@@ -321,11 +395,18 @@ class InterviewAttemptOut(BaseModel):
     questions: List[str] = []
     availability_status: AvailabilityStatus = AvailabilityStatus.PENDING
     consent_accepted: bool = False
+    tier: InterviewTier = "standard"
+    interviewer_name: Optional[str] = None
+    avatar: Optional[AvatarParams] = None
+    face_scan_done: bool = False
+    # Look-away warnings allowed before the interview ends, from the role's experience level.
+    max_warnings: int = 2
+    experience_level: str = "unspecified"
 
 
 class QAPair(BaseModel):
-    question: str = Field(min_length=1)
-    answer: str = Field(min_length=1)
+    question: str = Field(min_length=1, max_length=2000)
+    answer: str = Field(min_length=1, max_length=10000)
 
 
 class SpeakingMetric(BaseModel):
@@ -339,6 +420,7 @@ class InterviewAttemptSubmit(BaseModel):
     duration_minutes: Optional[int] = Field(default=None, ge=1, le=480)
     mode: str = Field(default="text", pattern="^(text|voice)$")
     speaking_metrics: Optional[List[SpeakingMetric]] = None
+    warnings: int = Field(default=0, ge=0, le=50)
 
 
 class InterviewTerminateRequest(BaseModel):
@@ -360,6 +442,7 @@ class JobCreate(BaseModel):
     status: JobStatus = JobStatus.DRAFT
     salary_min: Optional[int] = Field(default=None, ge=0)
     salary_max: Optional[int] = Field(default=None, ge=0)
+    experience_min_years: Optional[int] = Field(default=None, ge=0, le=50)
 
 
 class JobUpdate(BaseModel):
@@ -371,6 +454,7 @@ class JobUpdate(BaseModel):
     status: Optional[JobStatus] = None
     salary_min: Optional[int] = Field(default=None, ge=0)
     salary_max: Optional[int] = Field(default=None, ge=0)
+    experience_min_years: Optional[int] = Field(default=None, ge=0, le=50)
 
 
 class JobOut(BaseModel):
@@ -383,6 +467,7 @@ class JobOut(BaseModel):
     status: JobStatus
     salary_min: Optional[int]
     salary_max: Optional[int]
+    experience_min_years: Optional[int] = None
     application_count: int = 0
     created_by_name: Optional[str] = None
     created_by_email: Optional[str] = None
@@ -422,6 +507,10 @@ class JobApplicationOut(BaseModel):
     status: JobApplicationStatus
     cover_letter: Optional[str]
     notes: Optional[str]
+    resume_filename: Optional[str] = None
+    resume_data: Optional[dict] = None
+    portfolio_url: Optional[str] = None
+    portfolio_data: Optional[dict] = None
     created_at: datetime
     updated_at: datetime
     candidate: CandidateSummaryOut
@@ -439,6 +528,7 @@ class JobBoardOut(BaseModel):
     employment_type: EmploymentType
     salary_min: Optional[int]
     salary_max: Optional[int]
+    experience_min_years: Optional[int] = None
     created_at: datetime
     already_applied: bool
     my_application_status: Optional[JobApplicationStatus] = None
@@ -462,6 +552,7 @@ class JobSummaryOut(BaseModel):
     status: JobStatus
     salary_min: Optional[int]
     salary_max: Optional[int]
+    experience_min_years: Optional[int] = None
 
     class Config:
         from_attributes = True
@@ -471,9 +562,30 @@ class MyApplicationOut(BaseModel):
     id: UUID
     status: JobApplicationStatus
     cover_letter: Optional[str]
+    resume_filename: Optional[str] = None
+    portfolio_url: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     job: JobSummaryOut
 
     class Config:
         from_attributes = True
+
+
+class NotificationOut(BaseModel):
+    id: UUID
+    type: str
+    title: str
+    body: str
+    link: Optional[str] = None
+    interview_id: Optional[UUID] = None
+    read_at: Optional[datetime] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class NotificationListOut(BaseModel):
+    unread_count: int
+    items: List[NotificationOut]
