@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Logo } from "@/components/Logo";
+import { BrandLogo } from "@/components/BrandLogo";
 import { BotAvatar } from "@/components/BotAvatar";
 import { ConsentGate } from "@/components/interview/ConsentGate";
+import { CornerVerification, type CornerShot } from "@/components/interview/CornerVerification";
 import { cardStyle, inputStyle, primaryButtonStyle, secondaryButtonStyle } from "@/components/dashboard/formStyles";
 import { captureVideoFrame } from "@/lib/captureSnapshot";
 import {
@@ -12,11 +13,14 @@ import {
   submitInterviewAttempt,
   submitInterviewConsent,
   terminateInterviewAttempt,
+  uploadFaceScan,
   uploadIdentitySnapshot,
   type InterviewAttempt,
   type SpeakingMetric,
 } from "@/lib/candidates";
+import { requireSessionOrRedirect } from "@/lib/auth";
 import { useProctoring, type ProctorViolation } from "@/hooks/useProctoring";
+import { useLookAwayWarnings } from "@/hooks/useLookAwayWarnings";
 import { countFillerWords, countWords, useSpeechAnswer } from "@/hooks/useSpeechAnswer";
 
 type Answer = { question: string; answer: string; revised: boolean };
@@ -30,6 +34,8 @@ type Stage =
   | "consent"
   | "intro"
   | "setup"
+  | "verify"
+  | "uploading-verification"
   | "question"
   | "review"
   | "submitting"
@@ -42,12 +48,21 @@ const VIOLATION_TEXT: Record<TerminationReason, string> = {
   tab_switch: "you switched away from this tab",
   window_blur: "this window lost focus",
   face_not_detected: "your face couldn't be detected in the camera for too long",
+  looking_away: "you turned away from the screen more times than the interview allows",
   screen_share_stopped: "screen sharing was stopped",
   connection_lost: "your connection to the interview was interrupted for too long",
 };
 
 export function BotInterviewAttemptClient({ interviewId }: { interviewId: string }) {
   const [stage, setStage] = useState<Stage>("loading");
+  // Lets the bot avatar shrink on narrow phones instead of overflowing its card.
+  const [viewportWidth, setViewportWidth] = useState(1024);
+  useEffect(() => {
+    const update = () => setViewportWidth(window.innerWidth);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
   const [attempt, setAttempt] = useState<InterviewAttempt | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -61,6 +76,7 @@ export function BotInterviewAttemptClient({ interviewId }: { interviewId: string
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [terminationReason, setTerminationReason] = useState<TerminationReason | null>(null);
+
 
   const terminatedRef = useRef(false);
   const answersRef = useRef<Answer[]>([]);
@@ -92,6 +108,18 @@ export function BotInterviewAttemptClient({ interviewId }: { interviewId: string
   const proctoring = useProctoring({
     active: stage === "question" || stage === "review",
     onViolation: handleViolation,
+    // Looking away or leaving the frame is handled by the warnings below instead of ending the interview at once.
+    endOnMissingFace: false,
+  });
+
+  // Look-away warnings: how many are allowed comes from the role's experience level (2 for freshers and most
+  // roles, 5 for senior roles). Each one plays an alert sound; the warning after the allowance ends the interview.
+  const maxWarnings = attempt?.max_warnings ?? 2;
+  const lookAway = useLookAwayWarnings({
+    active: stage === "question" || stage === "review",
+    videoRef: proctoring.videoRef,
+    maxWarnings,
+    onExceeded: () => handleViolation("looking_away"),
   });
 
   // Server-side half of proctoring: ping a heartbeat every few seconds while
@@ -123,6 +151,7 @@ export function BotInterviewAttemptClient({ interviewId }: { interviewId: string
   }, [stage, interviewId]);
 
   useEffect(() => {
+    if (!requireSessionOrRedirect(["candidate"])) return;
     getInterviewAttempt(interviewId)
       .then((data) => {
         setAttempt(data);
@@ -152,9 +181,28 @@ export function BotInterviewAttemptClient({ interviewId }: { interviewId: string
   }
 
   const questions = attempt?.questions ?? [];
-
   function continueToSetup() {
     setStage("setup");
+  }
+
+  const [verifyError, setVerifyError] = useState<string | null>(null);
+
+  // Four-corner face verification runs once the camera and screen share are live; the interview
+  // only starts after its frames are safely stored for the employer.
+  function beginVerification() {
+    setVerifyError(null);
+    setStage("verify");
+  }
+
+  async function handleVerificationDone(shots: CornerShot[]) {
+    setStage("uploading-verification");
+    try {
+      await uploadFaceScan(interviewId, shots);
+      startInterview();
+    } catch (err) {
+      setVerifyError(err instanceof Error ? err.message : "Could not save your face verification.");
+      setStage("setup");
+    }
   }
 
   function startInterview() {
@@ -183,7 +231,7 @@ export function BotInterviewAttemptClient({ interviewId }: { interviewId: string
     let cancelled = false;
     (async () => {
       await speech.speak(questions[questionIndex]);
-      if (!cancelled && !locked) {
+      if (!cancelled && !locked && mode === "voice") {
         speech.startListening((transcript) => setDraft(transcript));
       }
     })();
@@ -197,10 +245,14 @@ export function BotInterviewAttemptClient({ interviewId }: { interviewId: string
     if (!draft.trim()) return;
     if (mode === "voice" && speech.listening) {
       const { durationSeconds } = speech.stopListening();
-      setSpeakingMetrics((prev) => [
-        ...prev,
-        { duration_seconds: Math.round(durationSeconds), word_count: countWords(draft), filler_word_count: countFillerWords(draft) },
-      ]);
+      // Keyed by question so a revised answer replaces its earlier metric instead of shifting later ones.
+      const metric = { duration_seconds: Math.round(durationSeconds), word_count: countWords(draft), filler_word_count: countFillerWords(draft) };
+      setSpeakingMetrics((prev) => {
+        const next = [...prev];
+        for (let i = next.length; i < questionIndex; i++) next[i] = { duration_seconds: 0, word_count: 0, filler_word_count: 0 };
+        next[questionIndex] = metric;
+        return next;
+      });
     }
     setLocked(true);
   }
@@ -234,14 +286,22 @@ export function BotInterviewAttemptClient({ interviewId }: { interviewId: string
     setSubmitError(null);
     const elapsedMinutes = startedAt ? Math.round((Date.now() - startedAt) / 60000) : 5;
     try {
-      await submitInterviewAttempt(
+      const result = await submitInterviewAttempt(
         interviewId,
         answers.map((a) => ({ question: a.question, answer: a.answer })),
         Math.min(480, Math.max(1, elapsedMinutes)),
         mode,
-        mode === "voice" ? speakingMetrics : undefined
+        mode === "voice" ? speakingMetrics : undefined,
+        lookAway.warnings
       );
       proctoring.stopAll();
+      if (result.status === "cancelled") {
+        // The server ended the interview (heartbeats went stale) instead of completing it.
+        terminatedRef.current = true;
+        setTerminationReason("connection_lost");
+        setStage("terminated");
+        return;
+      }
       setStage("done");
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Could not save your interview.");
@@ -253,10 +313,9 @@ export function BotInterviewAttemptClient({ interviewId }: { interviewId: string
   const voiceModeAvailable = speech.supported && speech.speechSupported;
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", padding: "40px 16px" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "28px" }}>
-        <Logo size={34} radius={9} />
-        <span style={{ fontSize: "18px", fontWeight: 800, color: "#e2e8f0" }}>Nextenti</span>
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", padding: "clamp(16px, 5vw, 40px) 16px" }}>
+      <div style={{ display: "flex", alignItems: "center", marginBottom: "28px" }}>
+        <BrandLogo height="clamp(32px, 11vw, 52px)" />
       </div>
 
       {/* Persistent camera preview — a single <video> element survives stage transitions so the
@@ -267,10 +326,11 @@ export function BotInterviewAttemptClient({ interviewId }: { interviewId: string
         playsInline
         style={{
           position: "fixed",
-          bottom: "20px",
-          right: "20px",
-          width: proctoring.cameraReady && (stage === "setup" || stage === "question" || stage === "review") ? "140px" : "0px",
-          height: proctoring.cameraReady && (stage === "setup" || stage === "question" || stage === "review") ? "105px" : "0px",
+          bottom: "12px",
+          right: "12px",
+          width: proctoring.cameraReady && (stage === "setup" || stage === "question" || stage === "review") ? "clamp(88px, 26vw, 140px)" : "0px",
+          aspectRatio: "4 / 3",
+          height: proctoring.cameraReady && (stage === "setup" || stage === "question" || stage === "review") ? "auto" : "0px",
           borderRadius: "10px",
           objectFit: "cover",
           border: "2px solid #0e5266",
@@ -280,6 +340,44 @@ export function BotInterviewAttemptClient({ interviewId }: { interviewId: string
           background: "#000",
         }}
       />
+
+      {stage === "verify" && <CornerVerification onComplete={handleVerificationDone} />}
+
+      {lookAway.latest && lookAway.latest.n <= maxWarnings && (stage === "question" || stage === "review") && (
+        <div
+          key={lookAway.latest.at}
+          role="alert"
+          aria-live="assertive"
+          style={{
+            position: "fixed",
+            top: "12px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 120,
+            width: "min(560px, calc(100vw - 24px))",
+            boxSizing: "border-box",
+            padding: "14px 18px",
+            borderRadius: "14px",
+            background: "#b91c1c",
+            color: "#fff",
+            boxShadow: "0 12px 40px rgba(0,0,0,0.4)",
+            animation: "lookAwayBanner 8s forwards",
+          }}
+        >
+          <style>{"@keyframes lookAwayBanner{0%,92%{opacity:1;visibility:visible}100%{opacity:0;visibility:hidden}}"}</style>
+          <div style={{ fontWeight: 800, fontSize: "15px" }}>
+            Warning {lookAway.latest.n} of {maxWarnings}
+          </div>
+          <div style={{ fontSize: "13px", marginTop: "2px", lineHeight: 1.45 }}>
+            {lookAway.latest.reason === "no_face"
+              ? "We can't see your face. Please move back into the camera view."
+              : "Please keep your face towards the screen."}{" "}
+            {lookAway.remaining > 0
+              ? `${lookAway.remaining} warning${lookAway.remaining === 1 ? "" : "s"} left before the interview ends.`
+              : "This was your last warning. The interview will end if it happens again."}
+          </div>
+        </div>
+      )}
 
       <div style={{ width: "100%", maxWidth: "680px" }}>
         {stage === "loading" && (
@@ -336,10 +434,28 @@ export function BotInterviewAttemptClient({ interviewId }: { interviewId: string
           stage !== "terminated" && (
           <>
             <div style={{ marginBottom: "16px", textAlign: "center" }}>
-              <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--text-primary)", margin: 0 }}>Bot Interview</h1>
+              <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--text-primary)", margin: 0 }}>
+                Bot Interview
+              </h1>
               <p style={{ fontSize: "13px", color: "var(--text-secondary)", margin: "4px 0 0" }}>
                 {attempt ? `Hi ${attempt.candidate_name}, let's get started.` : ""}
               </p>
+              {(stage === "question" || stage === "review") && (
+                <span
+                  style={{
+                    display: "inline-block",
+                    marginTop: "8px",
+                    padding: "3px 12px",
+                    borderRadius: "999px",
+                    fontSize: "12px",
+                    fontWeight: 700,
+                    color: lookAway.warnings > 0 ? "#b91c1c" : "#475569",
+                    border: `1px solid ${lookAway.warnings > 0 ? "#b91c1c" : "#cbd5e1"}`,
+                  }}
+                >
+                  Warnings: {Math.min(lookAway.warnings, maxWarnings)} of {maxWarnings}
+                </span>
+              )}
             </div>
 
             {stage === "intro" && (
@@ -373,8 +489,12 @@ export function BotInterviewAttemptClient({ interviewId }: { interviewId: string
                   </li>
                   <li style={{ fontSize: "13px", color: "#334155" }}>
                     This interview is proctored: your camera and screen share stay on throughout, and it
-                    will end automatically if you switch tabs/windows, your face isn&apos;t visible, or
-                    screen sharing stops. Other AI tools (ChatGPT, etc.) are forbidden and monitored for.
+                    will end automatically if you switch tabs/windows or screen sharing stops. Other AI
+                    tools (ChatGPT, etc.) are forbidden and monitored for.
+                  </li>
+                  <li style={{ fontSize: "13px", color: "#334155" }}>
+                    Keep your face towards the screen. If you turn away or leave the camera view you&apos;ll get
+                    a warning with an alert sound (you&apos;re allowed {maxWarnings}). After that the interview ends automatically.
                   </li>
                   <li style={{ fontSize: "13px", color: "#334155" }}>
                     At the end you&apos;ll review your full set of answers before it&apos;s submitted.
@@ -393,7 +513,7 @@ export function BotInterviewAttemptClient({ interviewId }: { interviewId: string
                         alignItems: "center",
                         gap: "8px",
                         padding: "10px 12px",
-                        border: `1.5px solid ${mode === "text" ? "#01617a" : "#e2e8f0"}`,
+                        border: `1.5px solid ${mode === "text" ? "#0066ff" : "#e2e8f0"}`,
                         borderRadius: "10px",
                         cursor: "pointer",
                         background: mode === "text" ? "#f0f9ff" : "#fff",
@@ -409,7 +529,7 @@ export function BotInterviewAttemptClient({ interviewId }: { interviewId: string
                         alignItems: "center",
                         gap: "8px",
                         padding: "10px 12px",
-                        border: `1.5px solid ${mode === "voice" ? "#01617a" : "#e2e8f0"}`,
+                        border: `1.5px solid ${mode === "voice" ? "#0066ff" : "#e2e8f0"}`,
                         borderRadius: "10px",
                         cursor: voiceModeAvailable ? "pointer" : "not-allowed",
                         background: mode === "voice" ? "#f0f9ff" : "#fff",
@@ -481,9 +601,19 @@ export function BotInterviewAttemptClient({ interviewId }: { interviewId: string
                   )}
                 </div>
 
+                <p style={{ fontSize: "12px", color: "#64748b", margin: 0 }}>
+                  Next, a quick face verification: you&apos;ll look at the centre of the screen, then turn your face toward
+                  each of the four corners. It adapts to your screen size.
+                </p>
+                {verifyError && (
+                  <p style={{ fontSize: "12px", color: "#dc2626", margin: 0 }} role="alert">
+                    {verifyError}
+                  </p>
+                )}
+
                 <div>
-                  <button type="button" style={primaryButtonStyle} onClick={startInterview} disabled={!setupReady}>
-                    Start Interview
+                  <button type="button" style={primaryButtonStyle} onClick={beginVerification} disabled={!setupReady}>
+                    Verify &amp; Start Interview
                   </button>
                 </div>
               </div>
@@ -491,13 +621,37 @@ export function BotInterviewAttemptClient({ interviewId }: { interviewId: string
 
             {stage === "question" && (
               <div key={questionIndex} className="fade-in" style={{ ...cardStyle, display: "flex", flexDirection: "column", gap: "14px" }}>
-                <div style={{ display: "flex", justifyContent: "center", marginBottom: "-2px" }}>
-                  <BotAvatar
-                    speaking={mode === "voice" && speech.speaking}
-                    mouthShape={mode === "voice" && speech.speaking ? speech.mouthShape : 0}
-                    size={128}
-                  />
-                </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "10px",
+                      padding: "28px 16px 20px",
+                      borderRadius: "18px",
+                      background: "radial-gradient(420px 240px at 50% 0%, rgba(0,102,255,0.28), transparent 70%), linear-gradient(180deg,#181a33,#0d0e1c)",
+                      boxShadow: "0 0 0 1px rgba(255,255,255,0.08)",
+                    }}
+                  >
+                    <BotAvatar
+                      speaking={mode === "voice" && speech.speaking}
+                      mouthShape={mode === "voice" && speech.speaking ? speech.mouthShape : 0}
+                      size={Math.min(240, viewportWidth - 96)}
+                    />
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: "8px", fontSize: "12px", fontWeight: 700, color: "#fff" }}>
+                      <span
+                        style={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: "50%",
+                          background: mode === "voice" && speech.speaking ? "#00b4ff" : "#64748b",
+                        }}
+                      />
+                      {attempt?.interviewer_name ?? "AI Interviewer"} ·{" "}
+                      {mode === "voice" && speech.speaking ? "Asking" : "Listening"}
+                    </span>
+                  </div>
                 <span style={{ fontSize: "11px", fontWeight: 700, color: "#94a3b8", textAlign: "center" }}>
                   Question {questionIndex + 1} of {questions.length}
                   {mode === "voice" && speech.listening && (
@@ -559,6 +713,12 @@ export function BotInterviewAttemptClient({ interviewId }: { interviewId: string
                     Submit Interview
                   </button>
                 </div>
+              </div>
+            )}
+
+            {stage === "uploading-verification" && (
+              <div className="fade-in" style={{ ...cardStyle, textAlign: "center" }}>
+                <p style={{ fontSize: "13px", color: "#64748b", margin: 0 }}>Saving your verification…</p>
               </div>
             )}
 

@@ -2,57 +2,53 @@
 
 import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
-import { SuperAdminShell } from "@/components/superadmin/SuperAdminShell";
-import { getAdminPalette } from "@/components/superadmin/adminStyles";
-import { useTheme } from "@/contexts/ThemeContext";
+import { AuroraLoading } from "@/components/aurora/AuroraLoading";
+import { AuroraPageHeader } from "@/components/aurora/AuroraPageHeader";
+import { CountUp } from "@/components/aurora/CountUp";
+import styles from "@/components/aurora/aurora.module.css";
 import { useSession } from "@/hooks/useSession";
 import { createOrganization, listOrganizations, type Organization } from "@/lib/superAdmin";
+import local from "./superAdmin.module.css";
+
+const GRID_COLUMNS = "2.2fr 1fr 1fr 1fr 1fr";
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
-function StatusPill({ status, palette }: { status: Organization["status"]; palette: ReturnType<typeof getAdminPalette> }) {
-  const isActive = status === "active";
+function StatusChip({ status }: { status: Organization["status"] }) {
+  const color = status === "active" ? "#34D399" : "#FB7185";
   return (
-    <span
-      style={{
-        fontSize: "10.5px",
-        fontWeight: 800,
-        letterSpacing: "0.04em",
-        textTransform: "uppercase",
-        padding: "3px 9px",
-        borderRadius: "999px",
-        background: isActive ? palette.positiveBg : palette.negativeBg,
-        color: isActive ? palette.positive : palette.negative,
-        border: `1px solid ${isActive ? palette.positiveBorder : palette.negativeBorder}`,
-      }}
-    >
+    <span className={styles.chip} style={{ color, background: `${color}29`, textTransform: "capitalize" }}>
+      <span className={styles.dot} style={{ background: color }} />
       {status}
     </span>
   );
 }
 
-function KpiCard({ label, value, palette }: { label: string; value: string | number; palette: ReturnType<typeof getAdminPalette> }) {
+function SmallStat({ label, value, foot }: { label: string; value: number; foot: string }) {
   return (
-    <div style={palette.card}>
-      <div style={{ fontSize: "10.5px", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: palette.textMuted }}>
-        {label}
+    <div className={`${styles.glass} ${styles.cardSm}`}>
+      <div style={{ fontSize: "13px", color: "var(--text-3)" }}>{label}</div>
+      <div
+        className={styles.display}
+        style={{ fontWeight: 700, fontSize: "40px", letterSpacing: "-0.03em", color: "var(--text)", margin: "6px 0 4px" }}
+      >
+        <CountUp value={value} />
       </div>
-      <div style={{ fontSize: "26px", fontWeight: 800, color: palette.textPrimary, marginTop: "6px" }}>{value}</div>
+      <div style={{ fontSize: "12px", color: "var(--text-4)" }}>{foot}</div>
     </div>
   );
 }
 
 export function SuperAdminDashboard() {
   const { user, loading } = useSession("super_admin");
-  const { theme } = useTheme();
-  const palette = getAdminPalette(theme);
   const [orgs, setOrgs] = useState<Organization[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | Organization["status"]>("all");
 
   const [name, setName] = useState("");
   const [adminEmail, setAdminEmail] = useState("");
@@ -99,73 +95,103 @@ export function SuperAdminDashboard() {
     }
   }
 
-  if (loading || !user) {
-    return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: palette.textMuted, fontSize: "14px", background: palette.bg }}>
-        Loading…
-      </div>
-    );
-  }
+  if (loading || !user) return <AuroraLoading />;
 
   const totalEmployers = orgs.reduce((n, o) => n + o.employer_count, 0);
   const totalCandidates = orgs.reduce((n, o) => n + o.candidate_count, 0);
   const totalJobs = orgs.reduce((n, o) => n + o.job_count, 0);
   const activeCount = orgs.filter((o) => o.status === "active").length;
+  const suspendedCount = orgs.filter((o) => o.status === "suspended").length;
 
-  const filteredOrgs = orgs.filter((o) => o.name.toLowerCase().includes(search.trim().toLowerCase()));
+  const filteredOrgs = orgs.filter(
+    (o) =>
+      (statusFilter === "all" || o.status === statusFilter) &&
+      o.name.toLowerCase().includes(search.trim().toLowerCase())
+  );
 
   return (
-    <SuperAdminShell user={user}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px", flexWrap: "wrap", gap: "12px" }}>
-        <div>
-          <h1 style={{ fontSize: "20px", fontWeight: 800, color: palette.textPrimary, margin: 0 }}>Organizations</h1>
-          <p style={{ fontSize: "12.5px", color: palette.textMuted, margin: "4px 0 0" }}>
-            Every tenant on Nextenti Talent Flow, and the access you have to manage them.
-          </p>
-        </div>
-        <button type="button" style={palette.primaryButton} onClick={() => setShowCreate((v) => !v)}>
-          {showCreate ? "Cancel" : "+ New Organization"}
-        </button>
-      </div>
+    <>
+      <AuroraPageHeader
+        eyebrow="Platform"
+        title="Organizations"
+        subtitle="Every tenant on Krafziel Talent Flow, and the access you have to manage them."
+        actions={
+          <button type="button" className={`${styles.btn} ${styles.btnAccent}`} onClick={() => setShowCreate((v) => !v)}>
+            {showCreate ? "Cancel" : "+ New Organization"}
+          </button>
+        }
+      />
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "14px", marginBottom: "24px" }}>
-        <KpiCard label="Organizations" value={orgs.length} palette={palette} />
-        <KpiCard label="Active" value={activeCount} palette={palette} />
-        <KpiCard label="Employers" value={totalEmployers} palette={palette} />
-        <KpiCard label="Candidates" value={totalCandidates} palette={palette} />
-        <KpiCard label="Jobs" value={totalJobs} palette={palette} />
+      <div className={local.statRow}>
+        <div className={`${local.bigStat} ${styles.lift}`} style={{ background: "var(--accent)", color: "var(--on-accent)" }}>
+          <span style={{ fontWeight: 600 }}>Organizations</span>
+          <div>
+            <div className={local.bigNum}>
+              <CountUp value={orgs.length} />
+            </div>
+            <div style={{ fontSize: "15px", fontWeight: 500 }}>
+              {activeCount} active · {suspendedCount} suspended
+            </div>
+          </div>
+        </div>
+        <div className={`${local.bigStat} ${styles.lift}`} style={{ background: "#0066ff", color: "#fff" }}>
+          <span style={{ fontWeight: 600 }}>Candidates</span>
+          <div>
+            <div className={local.bigNum}>
+              <CountUp value={totalCandidates} />
+            </div>
+            <div style={{ fontSize: "15px", fontWeight: 500, color: "#EEE9FF" }}>Across every organization</div>
+          </div>
+        </div>
+        <div className={local.smallStats}>
+          <SmallStat label="Active" value={activeCount} foot="Organizations in good standing" />
+          <SmallStat label="Employers" value={totalEmployers} foot="Employer logins" />
+          <SmallStat label="Jobs" value={totalJobs} foot="Posted in total" />
+        </div>
       </div>
 
       {showCreate && (
-        <form onSubmit={handleCreate} style={{ ...palette.card, marginBottom: "20px", display: "flex", flexDirection: "column", gap: "14px" }}>
-          <h2 style={{ fontSize: "14px", fontWeight: 800, color: palette.textPrimary, margin: 0 }}>
+        <form
+          onSubmit={handleCreate}
+          className={`${styles.glass} ${styles.card}`}
+          style={{ display: "flex", flexDirection: "column", gap: "20px" }}
+        >
+          <h2 className={styles.display} style={{ fontWeight: 600, fontSize: "18px", margin: 0, color: "var(--text)" }}>
             Create organization &amp; its first employer login
           </h2>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "14px" }}>
-            <div>
-              <label style={palette.label}>Organization Name</label>
-              <input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Acme Corp" style={palette.input} />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px" }}>
+            <div className={styles.field}>
+              <label className={styles.lbl} htmlFor="org-name">
+                Organization Name
+              </label>
+              <input id="org-name" className={styles.inp} required value={name} onChange={(e) => setName(e.target.value)} placeholder="Acme Corp" />
             </div>
-            <div>
-              <label style={palette.label}>Admin Full Name</label>
-              <input required value={adminFullName} onChange={(e) => setAdminFullName(e.target.value)} placeholder="Jane Doe" style={palette.input} />
+            <div className={styles.field}>
+              <label className={styles.lbl} htmlFor="org-admin-name">
+                Admin Full Name
+              </label>
+              <input id="org-admin-name" className={styles.inp} required value={adminFullName} onChange={(e) => setAdminFullName(e.target.value)} placeholder="Jane Doe" />
             </div>
-            <div>
-              <label style={palette.label}>Admin Email</label>
-              <input type="email" required value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} placeholder="jane@acme.com" style={palette.input} />
+            <div className={styles.field}>
+              <label className={styles.lbl} htmlFor="org-admin-email">
+                Admin Email
+              </label>
+              <input id="org-admin-email" className={styles.inp} type="email" required value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} placeholder="jane@acme.com" />
             </div>
-            <div>
-              <label style={palette.label}>Admin Password</label>
-              <input type="password" required minLength={8} value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} placeholder="At least 8 characters" style={palette.input} />
+            <div className={styles.field}>
+              <label className={styles.lbl} htmlFor="org-admin-pw">
+                Admin Password
+              </label>
+              <input id="org-admin-pw" className={styles.inp} type="password" required minLength={8} value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} placeholder="At least 8 characters" />
             </div>
           </div>
           {createError && (
-            <p style={{ fontSize: "12px", color: palette.negative, margin: 0 }} role="alert">
+            <p style={{ fontSize: "13px", color: "#FB7185", margin: 0 }} role="alert">
               {createError}
             </p>
           )}
           <div>
-            <button type="submit" disabled={creating} style={{ ...palette.primaryButton, opacity: creating ? 0.7 : 1 }}>
+            <button type="submit" disabled={creating} className={`${styles.btn} ${styles.btnAccent}`}>
               {creating ? "Creating…" : "Create Organization"}
             </button>
           </div>
@@ -173,71 +199,125 @@ export function SuperAdminDashboard() {
       )}
 
       {error && (
-        <p style={{ fontSize: "13px", color: palette.negative, margin: "0 0 16px" }} role="alert">
+        <p style={{ fontSize: "13px", color: "#FB7185", margin: 0 }} role="alert">
           {error}
         </p>
       )}
 
-      {orgs.length > 0 && (
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search organizations…"
-          style={{ ...palette.input, marginBottom: "14px", maxWidth: "320px" }}
-        />
-      )}
+      {dataLoading ? (
+        <AuroraLoading label="Loading organizations…" />
+      ) : (
+        <div className={styles.sidebarLayout}>
+          <aside className={`${styles.glass} ${styles.sideCard}`}>
+            <div className={styles.sideLabel}>Status</div>
+            {(
+              [
+                ["all", "All", orgs.length],
+                ["active", "Active", activeCount],
+                ["suspended", "Suspended", suspendedCount],
+              ] as const
+            ).map(([value, label, count]) => (
+              <button
+                key={value}
+                type="button"
+                className={`${styles.fi} ${statusFilter === value ? styles.fiOn : ""}`}
+                onClick={() => setStatusFilter(value)}
+              >
+                {label}
+                <span className={styles.n}>{count}</span>
+              </button>
+            ))}
+          </aside>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-        {dataLoading ? (
-          <p style={{ fontSize: "12px", color: palette.textMuted }}>Loading…</p>
-        ) : filteredOrgs.length === 0 ? (
-          <div style={{ ...palette.card, textAlign: "center", padding: "40px" }}>
-            <p style={{ fontSize: "13px", color: palette.textMuted, margin: 0 }}>
-              {orgs.length === 0 ? "No organizations yet." : "No organizations match your search."}
-            </p>
-          </div>
-        ) : (
-          filteredOrgs.map((org) => (
-            <Link
-              key={org.id}
-              href={`/super-admin/organizations/${org.id}`}
-              style={{
-                ...palette.card,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: "16px",
-                flexWrap: "wrap",
-                textDecoration: "none",
-                color: "inherit",
-                transition: "border-color 0.15s ease",
-              }}
+          <div style={{ display: "flex", flexDirection: "column", gap: "16px", minWidth: 0 }}>
+            <div
+              className={styles.glass}
+              style={{ borderRadius: "28px", padding: "20px 24px", display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: "16px" }}
             >
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "4px" }}>
-                  <span style={{ fontSize: "14.5px", fontWeight: 800, color: palette.textPrimary }}>{org.name}</span>
-                  <StatusPill status={org.status} palette={palette} />
-                </div>
-                <div style={{ fontSize: "11.5px", color: palette.textMuted }}>Created {formatDate(org.created_at)}</div>
+              <div className={styles.field} style={{ flex: "1 1 300px" }}>
+                <label className={styles.lbl} htmlFor="org-search">
+                  Search
+                </label>
+                <input
+                  id="org-search"
+                  className={styles.inp}
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search organizations…"
+                />
               </div>
-              <div style={{ display: "flex", gap: "20px" }}>
-                <div style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: "16px", fontWeight: 800, color: palette.textPrimary }}>{org.employer_count}</div>
-                  <div style={{ fontSize: "10px", color: palette.textMuted, textTransform: "uppercase" }}>Employers</div>
+              <span style={{ fontSize: "13px", color: "var(--text-3)", minHeight: "48px", display: "flex", alignItems: "center" }}>
+                {filteredOrgs.length} shown
+              </span>
+            </div>
+
+            <div className={`${styles.glass} ${styles.tableCard}`}>
+              <div className={styles.tableScroll}>
+                <div className={styles.th} style={{ gridTemplateColumns: GRID_COLUMNS }}>
+                  <span>Organization</span>
+                  <span>Status</span>
+                  <span>Employers</span>
+                  <span>Candidates</span>
+                  <span>Jobs</span>
                 </div>
-                <div style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: "16px", fontWeight: 800, color: palette.textPrimary }}>{org.candidate_count}</div>
-                  <div style={{ fontSize: "10px", color: palette.textMuted, textTransform: "uppercase" }}>Candidates</div>
-                </div>
-                <div style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: "16px", fontWeight: 800, color: palette.textPrimary }}>{org.job_count}</div>
-                  <div style={{ fontSize: "10px", color: palette.textMuted, textTransform: "uppercase" }}>Jobs</div>
-                </div>
+                {filteredOrgs.length === 0 ? (
+                  <p style={{ fontSize: "14px", color: "var(--text-4)", padding: "24px 28px", margin: 0, borderTop: "1px solid var(--line-soft)" }}>
+                    {orgs.length === 0 ? "No organizations yet." : "No organizations match your search."}
+                  </p>
+                ) : (
+                  filteredOrgs.map((org) => (
+                    <Link
+                      key={org.id}
+                      href={`/super-admin/organizations/${org.id}`}
+                      className={styles.tr}
+                      style={{ gridTemplateColumns: GRID_COLUMNS, color: "inherit", textDecoration: "none" }}
+                    >
+                      <span style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: 0 }}>
+                        <span
+                          className={styles.display}
+                          style={{
+                            width: "36px",
+                            height: "36px",
+                            borderRadius: "50%",
+                            flexShrink: 0,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: "13px",
+                            fontWeight: 700,
+                            background: "rgba(0, 102, 255,.25)",
+                            color: "#C9BBFF",
+                          }}
+                        >
+                          {org.name.trim().charAt(0).toUpperCase()}
+                        </span>
+                        <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                          <span
+                            className={styles.display}
+                            style={{ fontWeight: 600, fontSize: "14px", color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                          >
+                            {org.name}
+                          </span>
+                          <span style={{ fontSize: "12px", color: "var(--text-3)" }}>Created {formatDate(org.created_at)}</span>
+                        </span>
+                      </span>
+                      <span>
+                        <StatusChip status={org.status} />
+                      </span>
+                      <span style={{ fontSize: "13px" }}>{org.employer_count}</span>
+                      <span style={{ fontSize: "13px" }}>{org.candidate_count}</span>
+                      <span style={{ fontSize: "13px" }}>{org.job_count}</span>
+                    </Link>
+                  ))
+                )}
               </div>
-            </Link>
-          ))
-        )}
-      </div>
-    </SuperAdminShell>
+              <div className={styles.tableFoot}>
+                {filteredOrgs.length} of {orgs.length} organizations
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

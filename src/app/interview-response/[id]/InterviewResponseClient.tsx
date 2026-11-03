@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Logo } from "@/components/Logo";
+import { BrandLogo } from "@/components/BrandLogo";
 import {
   acceptInterviewAvailability,
   declineInterviewAvailability,
   getInterviewAvailability,
   type AvailabilityInfo,
 } from "@/lib/candidates";
+import { requireSessionOrRedirect } from "@/lib/auth";
 
 function formatWhen(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {
@@ -26,7 +27,7 @@ const cardStyle = {
   background: "#0f172a",
   border: "1px solid #334155",
   borderRadius: "16px",
-  padding: "36px",
+  padding: "clamp(18px, 6vw, 36px)",
   boxShadow: "0 25px 60px rgba(0,0,0,.5)",
   display: "flex",
   flexDirection: "column" as const,
@@ -40,6 +41,7 @@ export function InterviewResponseClient({ interviewId }: { interviewId: string }
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    if (!requireSessionOrRedirect(["candidate"])) return;
     getInterviewAvailability(interviewId)
       .then(setInfo)
       .catch((err) => setError(err instanceof Error ? err.message : "Could not load this interview."))
@@ -75,8 +77,7 @@ export function InterviewResponseClient({ interviewId }: { interviewId: string }
     >
       <div style={cardStyle}>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "10px" }}>
-          <Logo size={48} radius={13} />
-          <div style={{ fontSize: "17px", fontWeight: 800, color: "#e2e8f0" }}>Nextenti</div>
+          <BrandLogo height="clamp(30px, 9.5vw, 52px)" />
         </div>
 
         {loading ? (
@@ -134,7 +135,7 @@ export function InterviewResponseClient({ interviewId }: { interviewId: string }
                     padding: "12px",
                     borderRadius: "10px",
                     border: "none",
-                    background: "linear-gradient(135deg, #0891b2, #01617a)",
+                    background: "linear-gradient(135deg, #0891b2, #0066ff)",
                     color: "#fff",
                     fontWeight: 800,
                     fontSize: "13px",

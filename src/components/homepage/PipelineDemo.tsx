@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import aurora from "@/components/aurora/aurora.module.css";
 import styles from "./PipelineDemo.module.css";
 
 const STAGES = ["Sourced", "AI Screened", "Live Interview", "Offer"] as const;
@@ -28,7 +29,7 @@ export function PipelineDemo() {
   }
 
   return (
-    <div className={styles.wrap}>
+    <div className={`${aurora.glass} ${styles.wrap}`}>
       <div className={styles.header}>
         <span className={styles.badge}>Try it yourself</span>
         <button type="button" className={styles.resetBtn} onClick={reset}>
@@ -68,7 +69,7 @@ export function PipelineDemo() {
           );
         })}
       </div>
-      <p className={styles.hint}>Click any candidate card to move them to the next stage — this is exactly how your team's live pipeline works.</p>
+      <p className={styles.hint}>Click any candidate card to move them to the next stage — this is exactly how your team&apos;s live pipeline works.</p>
     </div>
   );
 }

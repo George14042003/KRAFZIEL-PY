@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { CountUp } from "@/components/aurora/CountUp";
+import { AuroraPageHeader } from "@/components/aurora/AuroraPageHeader";
+import styles from "@/components/aurora/aurora.module.css";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
-import { cardStyle } from "@/components/dashboard/formStyles";
 import { useSession } from "@/hooks/useSession";
 import {
   listAllInterviews,
@@ -14,6 +16,7 @@ import {
   type Offer,
 } from "@/lib/candidates";
 import { listJobs, type Job, type JobStatus } from "@/lib/jobs";
+import local from "./reports.module.css";
 
 const CANDIDATE_STATUS_LABELS: Record<CandidateStatus, string> = {
   pending: "Pending",
@@ -31,14 +34,37 @@ const JOB_STATUS_LABELS: Record<JobStatus, string> = {
   filled: "Filled",
 };
 
-function KpiCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
+const CANDIDATE_COLORS: Record<CandidateStatus, string> = {
+  pending: "#00B4FF",
+  reviewed: "#0066FF",
+  interviewing: "#0F172A",
+  offered: "#3B4147",
+  hired: "#00E5FF",
+  rejected: "#FF2D55",
+};
+
+const JOB_COLORS: Record<JobStatus, string> = {
+  draft: "#9CA3AF",
+  open: "#0066FF",
+  closed: "#9CA3AF",
+  filled: "#9CA3AF",
+};
+
+function KpiCard({ label, value, sub, bar }: { label: string; value: string | number; sub?: string; bar: string }) {
   return (
-    <div style={cardStyle}>
-      <div style={{ fontSize: "11px", fontWeight: 800, letterSpacing: "0.06em", color: "#94a3b8", textTransform: "uppercase" }}>
+    <div className={`${local.stat} ${styles.glass}`}>
+      <i className={local.statBar} style={{ background: bar }} />
+      <div className={local.statLabel} style={{ color: "var(--text-4)" }}>
         {label}
       </div>
-      <div style={{ fontSize: "28px", fontWeight: 800, color: "#0f172a", margin: "6px 0 2px" }}>{value}</div>
-      {sub && <div style={{ fontSize: "12px", color: "#64748b" }}>{sub}</div>}
+      <div className={local.statValue}>
+        <CountUp value={value} />
+      </div>
+      {sub && (
+        <div className={local.statFoot} style={{ color: "var(--text-3)" }}>
+          {sub}
+        </div>
+      )}
     </div>
   );
 }
@@ -53,32 +79,35 @@ function BreakdownCard({
   total: number;
 }) {
   return (
-    <div style={{ ...cardStyle, display: "flex", flexDirection: "column", gap: "12px" }}>
-      <h2 style={{ fontSize: "14px", fontWeight: 800, color: "#0f172a", margin: 0 }}>{title}</h2>
-      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+    <div className={`${styles.glass} ${styles.card}`} style={{ display: "flex", flexDirection: "column", gap: "22px" }}>
+      <h2 className={styles.display} style={{ fontWeight: 600, fontSize: "18px", margin: 0 }}>
+        {title}
+      </h2>
+      <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
         {rows.map((r) => {
           const pct = total === 0 ? 0 : Math.round((r.count / total) * 100);
           return (
-            <div key={r.label} style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#334155" }}>
-                <span>{r.label}</span>
-                <span style={{ fontWeight: 700 }}>
-                  {r.count} <span style={{ color: "#94a3b8", fontWeight: 500 }}>({pct}%)</span>
+            <div key={r.label} style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontSize: "14px" }}>
+                <span style={{ fontWeight: 500 }}>{r.label}</span>
+                <span style={{ color: "var(--text-3)", fontSize: "13px" }}>
+                  <b className={styles.display} style={{ fontSize: "17px", color: "var(--text)" }}>
+                    {r.count}
+                  </b>{" "}
+                  ({pct}%)
                 </span>
               </div>
-              <div style={{ height: "6px", borderRadius: "999px", background: "#f1f5f9", overflow: "hidden" }}>
-                <div style={{ height: "100%", width: `${pct}%`, background: r.color, borderRadius: "999px" }} />
+              <div className={styles.bar}>
+                <i style={{ width: `${pct}%`, background: r.color }} />
               </div>
             </div>
           );
         })}
-        {rows.length === 0 && <p style={{ fontSize: "12px", color: "#94a3b8", margin: 0 }}>No data yet.</p>}
+        {rows.length === 0 && <p style={{ fontSize: "13px", color: "var(--text-3)", margin: 0 }}>No data yet.</p>}
       </div>
     </div>
   );
 }
-
-const PALETTE = ["#0891b2", "#7c3aed", "#ea580c", "#dc2626", "#15803d", "#4338ca", "#b45309"];
 
 export function ReportsClient() {
   const { user, loading } = useSession("employer");
@@ -105,20 +134,20 @@ export function ReportsClient() {
   const candidateBreakdown = useMemo(() => {
     const counts = new Map<CandidateStatus, number>();
     for (const c of candidates) counts.set(c.status, (counts.get(c.status) ?? 0) + 1);
-    return Object.keys(CANDIDATE_STATUS_LABELS).map((status, i) => ({
+    return Object.keys(CANDIDATE_STATUS_LABELS).map((status) => ({
       label: CANDIDATE_STATUS_LABELS[status as CandidateStatus],
       count: counts.get(status as CandidateStatus) ?? 0,
-      color: PALETTE[i % PALETTE.length],
+      color: CANDIDATE_COLORS[status as CandidateStatus],
     }));
   }, [candidates]);
 
   const jobBreakdown = useMemo(() => {
     const counts = new Map<JobStatus, number>();
     for (const j of jobs) counts.set(j.status, (counts.get(j.status) ?? 0) + 1);
-    return Object.keys(JOB_STATUS_LABELS).map((status, i) => ({
+    return Object.keys(JOB_STATUS_LABELS).map((status) => ({
       label: JOB_STATUS_LABELS[status as JobStatus],
       count: counts.get(status as JobStatus) ?? 0,
-      color: PALETTE[i % PALETTE.length],
+      color: JOB_COLORS[status as JobStatus],
     }));
   }, [jobs]);
 
@@ -140,45 +169,36 @@ export function ReportsClient() {
 
   return (
     <DashboardShell user={user}>
-      <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-        <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: 0 }}>
-          Dashboard <span style={{ color: "var(--text-faint)" }}>/</span> Reports &amp; Analytics
+      <AuroraPageHeader
+        eyebrow="Analytics"
+        title="Reports & Analytics"
+        subtitle="A snapshot of your hiring pipeline across every job and candidate."
+      />
+
+      {error && (
+        <p style={{ fontSize: "13px", color: "#C4123A", margin: 0 }} role="alert">
+          {error}
         </p>
+      )}
 
-        <div>
-          <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--text-primary)", margin: 0, letterSpacing: "-0.01em" }}>
-            Reports &amp; Analytics
-          </h1>
-          <p style={{ fontSize: "13px", color: "var(--text-secondary)", margin: "4px 0 0" }}>
-            A snapshot of your hiring pipeline across every job and candidate.
-          </p>
-        </div>
+      {dataLoading ? (
+        <div style={{ color: "var(--text-3)", fontSize: "14px" }}>Crunching the numbers…</div>
+      ) : (
+        <>
+          <div className={local.stats}>
+            <KpiCard bar="#0066FF" label="Candidates" value={candidates.length} sub="in your pool" />
+            <KpiCard bar="#00B4FF" label="Open Jobs" value={jobs.filter((j) => j.status === "open").length} sub={`of ${jobs.length} total`} />
+            <KpiCard bar="#00E5FF" label="Upcoming Interviews" value={upcomingInterviews} sub={`${interviews.length} total scheduled`} />
+            <KpiCard bar="#0F172A" label="Accepted Offers" value={acceptedOffers} sub={`of ${offers.length} extended`} />
+            <KpiCard bar="#3B4147" label="Hire Rate" value={`${hireRate}%`} sub="of all candidates" />
+          </div>
 
-        {error && (
-          <p style={{ fontSize: "13px", color: "#dc2626", margin: 0 }} role="alert">
-            {error}
-          </p>
-        )}
-
-        {dataLoading ? (
-          <div style={{ color: "#94a3b8", fontSize: "13px" }}>Crunching the numbers…</div>
-        ) : (
-          <>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "14px" }}>
-              <KpiCard label="Candidates" value={candidates.length} sub="in your pool" />
-              <KpiCard label="Open Jobs" value={jobs.filter((j) => j.status === "open").length} sub={`of ${jobs.length} total`} />
-              <KpiCard label="Upcoming Interviews" value={upcomingInterviews} sub={`${interviews.length} total scheduled`} />
-              <KpiCard label="Accepted Offers" value={acceptedOffers} sub={`of ${offers.length} extended`} />
-              <KpiCard label="Hire Rate" value={`${hireRate}%`} sub="of all candidates" />
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "16px" }}>
-              <BreakdownCard title="Candidates by Status" rows={candidateBreakdown} total={candidates.length} />
-              <BreakdownCard title="Jobs by Status" rows={jobBreakdown} total={jobs.length} />
-            </div>
-          </>
-        )}
-      </div>
+          <div className={styles.two}>
+            <BreakdownCard title="Candidates by status" rows={candidateBreakdown} total={candidates.length} />
+            <BreakdownCard title="Jobs by status" rows={jobBreakdown} total={jobs.length} />
+          </div>
+        </>
+      )}
     </DashboardShell>
   );
 }

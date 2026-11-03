@@ -1,4 +1,5 @@
 import { getStoredToken } from "./auth";
+import type { AvatarParams } from "./avatarTypes";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8006";
 
@@ -29,6 +30,7 @@ export type Candidate = {
   offer_count: number;
   created_by_name: string | null;
   created_by_email: string | null;
+  has_account: boolean;
 };
 
 export type AiEvaluation = {
@@ -39,7 +41,27 @@ export type AiEvaluation = {
   confidence?: number;
   overall: number;
   summary: string;
+  recommendation?: "strong_hire" | "hire" | "maybe" | "no_hire";
+  recommendation_reason?: string;
+  /** Recorded when the bot interview was taken: how often the candidate looked away, and the allowance. */
+  proctoring?: { look_away_warnings: number; max_warnings: number; experience_level: string };
 };
+
+export const RECOMMENDATION_LABELS: Record<NonNullable<AiEvaluation["recommendation"]>, string> = {
+  strong_hire: "Strongly recommended",
+  hire: "Recommended",
+  maybe: "Consider with caution",
+  no_hire: "Not recommended",
+};
+
+/** Verdict for a scorecard; older ones saved before recommendations existed derive it from the overall score. */
+export function recommendationOf(e: AiEvaluation): NonNullable<AiEvaluation["recommendation"]> {
+  if (e.recommendation) return e.recommendation;
+  return e.overall >= 8.5 ? "strong_hire" : e.overall >= 7 ? "hire" : e.overall >= 5 ? "maybe" : "no_hire";
+}
+
+export type InterviewTier = "standard" | "god";
+export type FaceScanShot = { angle: string; url: string };
 
 export type Interview = {
   id: string;
@@ -56,9 +78,15 @@ export type Interview = {
   ai_evaluation: AiEvaluation | null;
   recording_urls: string[] | null;
   availability_status: AvailabilityStatus;
+  availability_responded_at: string | null;
+  candidate_name: string | null;
+  candidate_has_account: boolean;
   consent_accepted: boolean;
   consent_given_at: string | null;
   identity_snapshot_url: string | null;
+  tier: InterviewTier;
+  face_scan_urls: FaceScanShot[] | null;
+  face_scan_done: boolean;
   employer_feedback: string | null;
   employer_rating: number | null;
   created_at: string;
@@ -95,7 +123,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   if (!res.ok) {
     const body = await res.json().catch(() => null);
-    throw new Error(body?.detail ?? "Request failed.");
+    throw new Error(typeof body?.detail === "string" ? body.detail : `Request failed (HTTP ${res.status}).`);
   }
   if (res.status === 204) {
     return undefined as T;
@@ -137,6 +165,7 @@ export type InterviewPayload = {
   scheduled_at: string;
   duration_minutes?: number;
   interview_type: InterviewType;
+  tier?: InterviewTier;
   status?: InterviewStatus;
   interviewer_name: string;
   interviewer_email?: string;
@@ -246,6 +275,14 @@ export type InterviewAttempt = {
   questions: string[];
   availability_status: AvailabilityStatus;
   consent_accepted: boolean;
+  tier: InterviewTier;
+  interviewer_name: string;
+  /** The employer's digital twin; present only for God level interviews. */
+  avatar: AvatarParams | null;
+  face_scan_done: boolean;
+  /** Look-away warnings allowed before the interview ends, from the role's experience level. */
+  max_warnings: number;
+  experience_level: string;
 };
 
 export type InterviewAnswer = { question: string; answer: string };
@@ -261,7 +298,8 @@ export function submitInterviewAttempt(
   answers: InterviewAnswer[],
   durationMinutes?: number,
   mode: "text" | "voice" = "text",
-  speakingMetrics?: SpeakingMetric[]
+  speakingMetrics?: SpeakingMetric[],
+  warnings = 0
 ): Promise<InterviewAttempt> {
   return request(`/interviews/${interviewId}/attempt`, {
     method: "POST",
@@ -270,6 +308,7 @@ export function submitInterviewAttempt(
       duration_minutes: durationMinutes,
       mode,
       speaking_metrics: speakingMetrics,
+      warnings,
     }),
   });
 }
@@ -330,10 +369,34 @@ export async function uploadIdentitySnapshot(interviewId: string, blob: Blob): P
   form.append("file", blob, "snapshot.jpg");
   const res = await fetch(`${API_URL}/interviews/${interviewId}/identity-snapshot`, {
     method: "POST",
+    headers: authHeaders(),
     body: form,
   });
   if (!res.ok) {
     throw new Error("Could not upload identity snapshot.");
   }
   return res.json();
+}
+
+export async function uploadFaceScan(
+  interviewId: string,
+  shots: { angle: string; blob: Blob }[]
+): Promise<{ face_scan_urls: FaceScanShot[] }> {
+  const form = new FormData();
+  for (const shot of shots) form.append("shots", shot.blob, `${shot.angle}.jpg`);
+  form.append("angles", shots.map((s) => s.angle).join(","));
+  const res = await fetch(`${API_URL}/interviews/${interviewId}/face-scan`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: form,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.detail ?? "Could not upload your face scan.");
+  }
+  return res.json();
+}
+
+export function inviteCandidateToSignUp(candidateId: string): Promise<{ detail: string }> {
+  return request(`/candidates/${candidateId}/invite-signup`, { method: "POST" });
 }

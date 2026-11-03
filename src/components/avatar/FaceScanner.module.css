@@ -1,0 +1,283 @@
+/* Face scanner — a self-contained dark "scan" surface that reads the same on the
+   Aurora employer screens and the candidate interview screens. */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  width: 100%;
+}
+
+.stage {
+  position: relative;
+  width: min(100%, 420px);
+  aspect-ratio: 1 / 1;
+  border-radius: 28px;
+  overflow: hidden;
+  background: #070810;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 24px 60px rgba(0, 0, 0, 0.35);
+  isolation: isolate;
+}
+
+.video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+  background: #070810;
+}
+
+.vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 52% 60% at 50% 50%, transparent 62%, rgba(7, 8, 16, 0.78) 100%);
+}
+
+.scanline {
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  height: 2px;
+  top: 14%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, #00b4ff, transparent);
+  box-shadow: 0 0 18px 2px rgba(0, 180, 255, 0.55);
+  opacity: 0.8;
+  animation: sweep 2.6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes sweep {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(calc(min(420px, 100vw) * 0.7));
+  }
+}
+
+.ring {
+  position: absolute;
+  inset: 5%;
+  width: 90%;
+  height: 90%;
+  pointer-events: none;
+}
+
+.ringTrack,
+.ringActive,
+.ringDone {
+  fill: none;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
+.ringTrack {
+  stroke: rgba(255, 255, 255, 0.2);
+}
+
+.ringActive {
+  stroke: #00b4ff;
+  filter: drop-shadow(0 0 3px rgba(0, 180, 255, 0.7));
+  transition: stroke-dasharray 0.08s linear;
+}
+
+.ringDone {
+  stroke: #00b4ff;
+  filter: drop-shadow(0 0 4px rgba(0, 180, 255, 0.8));
+}
+
+.flash {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  pointer-events: none;
+  animation: flash 0.45s ease-out forwards;
+}
+
+@keyframes flash {
+  from {
+    opacity: 0.75;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 24px;
+  text-align: center;
+  color: #f3f4fb;
+  font-size: 14px;
+  font-weight: 600;
+  background: rgba(7, 8, 16, 0.72);
+  backdrop-filter: blur(8px);
+  animation: fade 0.3s ease both;
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.spinner {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.18);
+  border-top-color: #00b4ff;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  background: #00b4ff;
+  color: #ffffff;
+  box-shadow: 0 0 40px rgba(0, 180, 255, 0.5);
+  animation: pop 0.5s cubic-bezier(0.2, 1.6, 0.4, 1) both;
+}
+
+@keyframes pop {
+  from {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+}
+
+.errorText {
+  max-width: 300px;
+  line-height: 1.5;
+  color: #ffb4b4;
+}
+
+.retry {
+  min-height: 40px;
+  padding: 0 22px;
+  border: 0;
+  border-radius: 999px;
+  background: #00b4ff;
+  color: #ffffff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+  max-width: 420px;
+  min-height: 118px;
+}
+
+.stepCount {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-3, #94a3b8);
+}
+
+.title {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text, #0f172a);
+  animation: rise 0.35s ease both;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.hint {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text-3, #64748b);
+}
+
+.nudge {
+  margin: 4px 0 0;
+  font-size: 12.5px;
+  color: #d97706;
+}
+
+.dots {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dot,
+.dotActive,
+.dotDone {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: rgba(148, 163, 184, 0.4);
+  transition: background 0.25s, transform 0.25s;
+}
+
+.dotActive {
+  background: #0066ff;
+  transform: scale(1.25);
+}
+
+.dotDone {
+  background: #86ad1e;
+}
+
+.cancel {
+  margin-top: 6px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-3, #64748b);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scanline,
+  .spinner,
+  .check,
+  .title {
+    animation: none;
+  }
+}

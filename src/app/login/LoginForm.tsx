@@ -1,32 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AuthShell } from "@/components/auth/AuthShell";
-import { getAuthPalette } from "@/components/auth/authPalette";
-import { BriefcaseIcon, GoogleIcon, UserIcon } from "@/components/auth/icons";
-import { useTheme } from "@/contexts/ThemeContext";
-import { login, loginWithGoogle, resendVerificationEmail } from "@/lib/auth";
+import { AuthShell, RoleSwap, RoleTabs } from "@/components/auth/AuthShell";
+import s from "@/components/auth/AuthShell.module.css";
+import { GoogleIcon } from "@/components/auth/icons";
+import aurora from "@/components/aurora/aurora.module.css";
+import { login, loginWithGoogle, resendVerificationEmail, safeNextPath } from "@/lib/auth";
 import { requestGoogleAccessToken } from "@/lib/google";
+import { OPEN_EDITION_HOME, setOpenEdition } from "@/lib/edition";
 
 // This page only ever handles the two public-facing roles — Super Admin
 // signs in via its own separate, non-public login page.
 type Role = "candidate" | "employer";
-
-const tabBase: CSSProperties = {
-  flex: 1,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: "6px",
-  padding: "9px",
-  border: "none",
-  borderRadius: "11px",
-  fontSize: "12px",
-  fontWeight: 700,
-  cursor: "pointer",
-};
 
 const COPY: Record<
   Role,
@@ -75,16 +62,16 @@ const HERO_COPY: Record<Role, { headline: string; subhead: string; features: str
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { theme } = useTheme();
-  const palette = getAuthPalette(theme);
-  const [role, setRole] = useState<Role>("candidate");
+  // ?role= is read once up front so a deep link never flashes the other role first.
+  const [role, setRole] = useState<Role>(searchParams.get("role") === "employer" ? "employer" : "candidate");
 
+  const openEdition = searchParams.get("edition") === "open";
+  // Arriving from the "Open source" button turns the video-interviews-only edition on; any normal
+  // sign-in link turns it off.
   useEffect(() => {
-    const requested = searchParams.get("role");
-    if (requested === "candidate" || requested === "employer") {
-      setRole(requested);
-    }
-  }, [searchParams]);
+    setOpenEdition(openEdition);
+  }, [openEdition]);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
@@ -98,27 +85,13 @@ export function LoginForm() {
   const copy = COPY[role];
   const hero = HERO_COPY[role];
 
-  const candidateTabStyle: CSSProperties = {
-    ...tabBase,
-    background: isCandidate ? palette.tabActiveBg : "transparent",
-    color: isCandidate ? palette.tabActiveText : palette.tabInactiveText,
-    boxShadow: isCandidate ? palette.tabActiveShadow : "none",
-  };
-
-  const employerTabStyle: CSSProperties = {
-    ...tabBase,
-    background: !isCandidate ? palette.tabActiveBg : "transparent",
-    color: !isCandidate ? palette.tabActiveText : palette.tabInactiveText,
-    boxShadow: !isCandidate ? palette.tabActiveShadow : "none",
-  };
-
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
     try {
       await login({ role, email, password, remember });
-      router.push(isCandidate ? "/candidate" : "/employer");
+      router.push(safeNextPath(searchParams.get("next")) ?? (openEdition ? OPEN_EDITION_HOME[role] : isCandidate ? "/candidate" : "/employer"));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {
@@ -136,7 +109,7 @@ export function LoginForm() {
         return;
       }
       await loginWithGoogle(role, result.accessToken);
-      router.push(isCandidate ? "/candidate" : "/employer");
+      router.push(safeNextPath(searchParams.get("next")) ?? (openEdition ? OPEN_EDITION_HOME[role] : isCandidate ? "/candidate" : "/employer"));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {
@@ -158,190 +131,101 @@ export function LoginForm() {
   }
 
   return (
-    <AuthShell headline={hero.headline} subhead={hero.subhead} features={hero.features} mirrored={!isCandidate}>
-      <div
-        style={{
-          background: palette.cardBg,
-          backdropFilter: "blur(22px)",
-          WebkitBackdropFilter: "blur(22px)",
-          border: palette.cardBorder,
-          borderRadius: "28px",
-          padding: "36px",
-          boxShadow: "0 25px 60px rgba(0,0,0,.35)",
-          display: "flex",
-          flexDirection: "column",
-          gap: "24px",
-        }}
-      >
-        <div style={{ display: "flex", background: palette.tabWrapBg, borderRadius: "14px", padding: "4px", gap: "4px" }}>
-          <button type="button" style={candidateTabStyle} onClick={() => setRole("candidate")}>
-            <UserIcon size={14} color={isCandidate ? palette.tabActiveText : palette.tabInactiveText} />
-            Candidate
-          </button>
-          <button type="button" style={employerTabStyle} onClick={() => setRole("employer")}>
-            <BriefcaseIcon size={14} color={!isCandidate ? palette.tabActiveText : palette.tabInactiveText} />
-            Employer
-          </button>
-        </div>
+    <AuthShell
+      headline={hero.headline}
+      subhead={hero.subhead}
+      features={hero.features}
+      tone={role}
+      footnote={<>By continuing you agree to Krafziel&apos;s Terms &amp; Privacy Policy.</>}
+    >
+      <RoleTabs role={role} onChange={setRole} />
 
-        <div style={{ textAlign: "left" }}>
-          <h2 style={{ fontSize: "22px", fontWeight: 800, color: palette.heading, margin: "0 0 4px", letterSpacing: "-0.01em" }}>
-            {copy.heading}
-          </h2>
-          <p style={{ fontSize: "13px", color: palette.subheading, margin: 0 }}>{copy.subheading}</p>
-        </div>
-
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-          <div>
-            <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: palette.label, marginBottom: "6px" }}>
-              Email Address
-            </label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder={copy.emailPlaceholder}
-              style={{
-                width: "100%",
-                padding: "11px 14px",
-                background: palette.inputBg,
-                border: palette.inputBorder,
-                borderRadius: "12px",
-                fontSize: "13px",
-                color: palette.inputText,
-                boxSizing: "border-box",
-              }}
-            />
-          </div>
-
-          <div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
-              <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: palette.label }}>Password</label>
-              <Link href="/forgot-password" style={{ fontSize: "11px", fontWeight: 600, textDecoration: "none", color: palette.link }}>
-                Forgot password?
-              </Link>
-            </div>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              style={{
-                width: "100%",
-                padding: "11px 14px",
-                background: palette.inputBg,
-                border: palette.inputBorder,
-                borderRadius: "12px",
-                fontSize: "13px",
-                color: palette.inputText,
-                boxSizing: "border-box",
-              }}
-            />
-          </div>
-
-          <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", color: palette.checkboxText, cursor: "pointer" }}>
-            <input
-              type="checkbox"
-              checked={remember}
-              onChange={(e) => setRemember(e.target.checked)}
-              style={{ width: "14px", height: "14px", accentColor: "#01617a" }}
-            />
-            Remember me
-          </label>
-
-          {error && (
-            <p style={{ fontSize: "12px", color: "#dc2626", margin: 0 }} role="alert">
-              {error}
-              {error.toLowerCase().includes("verify your email") && (
-                <>
-                  {" "}
-                  <button
-                    type="button"
-                    onClick={handleResendVerification}
-                    disabled={resendingVerification}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      padding: 0,
-                      color: "#dc2626",
-                      fontWeight: 700,
-                      fontSize: "12px",
-                      cursor: resendingVerification ? "default" : "pointer",
-                      textDecoration: "underline",
-                    }}
-                  >
-                    {resendingVerification ? "Sending…" : "Resend email"}
-                  </button>
-                </>
-              )}
-            </p>
-          )}
-          {resendMessage && (
-            <p style={{ fontSize: "12px", color: palette.link, margin: 0 }}>{resendMessage}</p>
-          )}
-
-          <button
-            type="submit"
-            disabled={submitting}
-            style={{
-              padding: "12px",
-              background: "#01617a",
-              color: "#fff",
-              border: "none",
-              borderRadius: "12px",
-              fontWeight: 700,
-              fontSize: "13px",
-              cursor: submitting ? "default" : "pointer",
-              marginTop: "4px",
-              opacity: submitting ? 0.7 : 1,
-            }}
-          >
-            {submitting ? "Signing in…" : copy.submitLabel}
-          </button>
-        </form>
-
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <div style={{ flex: 1, height: "1px", background: palette.dividerLine }} />
-          <span style={{ fontSize: "11px", color: palette.dividerText, fontWeight: 600 }}>OR</span>
-          <div style={{ flex: 1, height: "1px", background: palette.dividerLine }} />
-        </div>
-
-        <button
-          type="button"
-          disabled={googleSubmitting}
-          onClick={handleGoogleSignIn}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "10px",
-            padding: "11px",
-            border: palette.googleBorder,
-            background: palette.googleBg,
-            borderRadius: "12px",
-            fontSize: "13px",
-            fontWeight: 600,
-            color: palette.googleText,
-            cursor: googleSubmitting ? "default" : "pointer",
-            opacity: googleSubmitting ? 0.7 : 1,
-          }}
-        >
-          <GoogleIcon size={16} />
-          {googleSubmitting ? "Connecting…" : "Continue with Google"}
-        </button>
-
-        <p style={{ textAlign: "center", fontSize: "12px", color: palette.subheading, margin: 0 }}>
-          Don&apos;t have an account?{" "}
-          <Link href="/signup" style={{ fontWeight: 700, textDecoration: "none", color: palette.link }}>
-            Sign up
-          </Link>
+      <div>
+        <h2 className={s.title}>
+          <RoleSwap role={role} candidate={COPY.candidate.heading} employer={COPY.employer.heading} />
+        </h2>
+        <p className={s.sub}>
+          <RoleSwap role={role} candidate={COPY.candidate.subheading} employer={COPY.employer.subheading} />
         </p>
       </div>
 
-      <p style={{ textAlign: "center", fontSize: "11px", color: palette.mutedText, margin: 0 }}>
-        By continuing you agree to Nextenti&apos;s Terms &amp; Privacy Policy.
+      <form suppressHydrationWarning onSubmit={handleSubmit} className={s.form}>
+        <div className={aurora.field}>
+          <label className={aurora.lbl} htmlFor="login-email">
+            Email Address
+          </label>
+          <input suppressHydrationWarning
+            id="login-email"
+            className={aurora.inp}
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder={copy.emailPlaceholder}
+          />
+        </div>
+
+        <div className={aurora.field}>
+          <div className={s.rowBetween}>
+            <label className={aurora.lbl} htmlFor="login-password">
+              Password
+            </label>
+            <Link href="/forgot-password" className={s.link} style={{ fontSize: 12 }}>
+              Forgot password?
+            </Link>
+          </div>
+          <input suppressHydrationWarning
+            id="login-password"
+            className={aurora.inp}
+            type="password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+          />
+        </div>
+
+        <label className={s.check}>
+          <input suppressHydrationWarning type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
+          Remember me
+        </label>
+
+        {error && (
+          <p className={s.err} role="alert">
+            {error}
+            {error.toLowerCase().includes("verify your email") && (
+              <>
+                {" "}
+                <button type="button" className={s.linkBtn} onClick={handleResendVerification} disabled={resendingVerification}>
+                  {resendingVerification ? "Sending…" : "Resend email"}
+                </button>
+              </>
+            )}
+          </p>
+        )}
+        {resendMessage && <p className={s.ok}>{resendMessage}</p>}
+
+        <button type="submit" disabled={submitting} className={`${aurora.btn} ${aurora.btnAccent} ${s.full}`}>
+          {submitting ? "Signing in…" : <RoleSwap role={role} candidate={COPY.candidate.submitLabel} employer={COPY.employer.submitLabel} />}
+        </button>
+      </form>
+
+      {process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID && (
+        <>
+          <div className={s.divider}>OR</div>
+
+          <button type="button" disabled={googleSubmitting} onClick={handleGoogleSignIn} className={`${aurora.btn} ${aurora.btnGlass} ${s.full}`}>
+            <GoogleIcon size={16} />
+            {googleSubmitting ? "Connecting…" : "Continue with Google"}
+          </button>
+        </>
+      )}
+
+      <p className={s.foot}>
+        Don&apos;t have an account?{" "}
+        <Link href="/signup" className={s.link}>
+          Sign up
+        </Link>
       </p>
     </AuthShell>
   );

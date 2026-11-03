@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
-import { StatCard } from "@/components/dashboard/StatCard";
-import { StatusBreakdown } from "@/components/dashboard/StatusBreakdown";
+import styles from "@/components/aurora/aurora.module.css";
+import local from "./employerApp.module.css";
+import { CountUp } from "@/components/aurora/CountUp";
 import { useSession } from "@/hooks/useSession";
-import { SparklesIcon } from "@/components/auth/icons";
 import { listCandidates, listAllInterviews, listAllOffers, type Candidate, type Interview, type Offer } from "@/lib/candidates";
 
 function isUpcoming(interview: Interview): boolean {
@@ -23,81 +23,22 @@ function formatWhen(iso: string): string {
   });
 }
 
-const SOURCE_COLORS = ["#dc2626", "#ea580c", "#7c3aed", "#0d9488", "#4338ca", "#059669", "#be185d", "#0f172a"];
+const STATUS_META: { key: string; label: string; color: string }[] = [
+  { key: "pending", label: "Pending", color: "#00B4FF" },
+  { key: "reviewed", label: "Reviewed", color: "#0066FF" },
+  { key: "interviewing", label: "Interviewing", color: "#0F172A" },
+  { key: "offered", label: "Offered", color: "#3B4147" },
+  { key: "hired", label: "Hired", color: "#00E5FF" },
+  { key: "rejected", label: "Rejected", color: "#FF2D55" },
+];
 
-function sourceColor(source: string): string {
-  let hash = 0;
-  for (let i = 0; i < source.length; i += 1) hash = (hash * 31 + source.charCodeAt(i)) >>> 0;
-  return SOURCE_COLORS[hash % SOURCE_COLORS.length];
-}
+const CALENDAR_ICON = "M4 6h16v14H4z M4 10h16 M8 3v4 M16 3v4";
 
-const INTERVIEW_TYPE_COLORS: Record<string, string> = {
-  phone: "#0ea5e9",
-  video: "#dc2626",
-  onsite: "#8b5cf6",
-  technical: "#f59e0b",
-  final: "#22c55e",
-  bot: "#64748b",
-};
-
-const panelCardStyle = {
-  background: "#fff",
-  border: "1px solid #eef1f5",
-  borderRadius: "16px",
-  padding: "16px 18px",
-  boxShadow: "0 1px 2px rgba(15,23,42,0.04), 0 8px 24px rgba(15,23,42,0.06)",
-} as const;
-
-const panelLabelStyle = {
-  display: "block" as const,
-  fontSize: "11px",
-  fontWeight: 800,
-  letterSpacing: "0.08em",
-  textTransform: "uppercase" as const,
-  color: "#94a3b8",
-  marginBottom: "12px",
-  borderLeft: "3px solid #01617a",
-  paddingLeft: "10px",
-};
-
-function renderBarRows(rows: { label: string; count: number; color: string }[]) {
-  const max = Math.max(1, ...rows.map((r) => r.count));
+function Icon({ d, size = 20, sw = 2 }: { d: string; size?: number; sw?: number }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-      {rows.map((row) => (
-        <div key={row.label} style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: row.color, flexShrink: 0 }} />
-          <span
-            style={{
-              fontSize: "12px",
-              color: "#334155",
-              width: "132px",
-              flexShrink: 0,
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              textTransform: "capitalize",
-            }}
-            title={row.label}
-          >
-            {row.label}
-          </span>
-          <div style={{ flex: 1, height: "6px", background: "#f1f5f9", borderRadius: "999px", overflow: "hidden" }}>
-            <div
-              style={{
-                height: "100%",
-                width: `${(row.count / max) * 100}%`,
-                background: row.color,
-                borderRadius: "999px",
-              }}
-            />
-          </div>
-          <span style={{ fontSize: "12px", fontWeight: 700, color: "#0f172a", width: "22px", textAlign: "right" }}>
-            {row.count}
-          </span>
-        </div>
-      ))}
-    </div>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d={d} />
+    </svg>
   );
 }
 
@@ -129,7 +70,8 @@ export function EmployerApp() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          color: "var(--text-secondary)",
+          color: "var(--text-3)",
+          background: "var(--bg)",
           fontSize: "14px",
         }}
       >
@@ -177,7 +119,7 @@ export function EmployerApp() {
       map.set(key, (map.get(key) ?? 0) + 1);
     });
     return Array.from(map.entries())
-      .map(([label, count]) => ({ label, count, color: sourceColor(label) }))
+      .map(([label, count]) => ({ label, count }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 6);
   })();
@@ -188,246 +130,242 @@ export function EmployerApp() {
       map.set(i.interview_type, (map.get(i.interview_type) ?? 0) + 1);
     });
     return Array.from(map.entries())
-      .map(([label, count]) => ({ label, count, color: INTERVIEW_TYPE_COLORS[label] ?? "#64748b" }))
+      .map(([label, count]) => ({ label, count }))
       .sort((a, b) => b.count - a.count);
   })();
 
+
+  const statusRows = STATUS_META.map((s) => ({ ...s, count: candidates.filter((c) => c.status === s.key).length }));
+  const totalCandidates = candidates.length;
+  const maxStatus = Math.max(1, ...statusRows.map((r) => r.count));
+  const maxType = Math.max(1, ...interviewTypeCounts.map((r) => r.count));
+  const maxSource = Math.max(1, ...sourceCounts.map((r) => r.count));
+  const nextUp = upcomingInterviews.slice(0, 4);
+  const delay = (i: number) => ({ "--d": `${0.4 + i * 0.09}s` }) as CSSProperties;
+
+  const kpis: { label: string; value: number; bar: string; foot: ReactNode }[] = [
+    { label: "Total candidates", value: totalCandidates, bar: "#0066FF", foot: "in the shared pool" },
+    { label: "Pending review", value: pendingReview, bar: "#00B4FF", foot: "awaiting first look" },
+    {
+      label: "Offers extended",
+      value: offersExtended,
+      bar: "#00E5FF",
+      foot: offersDecided ? <span className={local.tag}>{acceptanceRate}% accepted</span> : "no decisions yet",
+    },
+    { label: "Hired", value: hiredCount, bar: "#3B4147", foot: `${rejectedCount} rejected` },
+  ];
+
   return (
     <DashboardShell user={user}>
-      <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-        <div
-          style={{
-            position: "relative",
-            overflow: "hidden",
-            borderRadius: "16px",
-            padding: "14px 18px",
-            background: "linear-gradient(135deg, #3f3f46 0%, #18181b 55%, #0a275f 100%)",
-            border: "1px solid rgba(255,255,255,0.08)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "16px",
-            flexWrap: "wrap",
-          }}
-        >
-          <span
-            style={{
-              position: "absolute",
-              top: "-60px",
-              right: "-40px",
-              width: "160px",
-              height: "160px",
-              borderRadius: "50%",
-              background: "#01617a",
-              filter: "blur(70px)",
-              opacity: 0.3,
-              pointerEvents: "none",
-            }}
-          />
-          <div style={{ position: "relative", zIndex: 1, minWidth: 0 }}>
-            <span
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "5px",
-                padding: "3px 10px",
-                borderRadius: "999px",
-                background: "rgba(8,145,178,0.22)",
-                border: "1px solid rgba(103,232,249,0.35)",
-                color: "#a5f3fc",
-                fontSize: "9.5px",
-                fontWeight: 700,
-                letterSpacing: "0.03em",
-                textTransform: "uppercase",
-                marginBottom: "6px",
-              }}
-            >
-              <SparklesIcon size={9} color="#a5f3fc" />
-              AI-Powered Interview Scheduling
-            </span>
-            <h1 style={{ fontSize: "17px", fontWeight: 800, color: "#fff", margin: 0, letterSpacing: "-0.01em" }}>
-              Welcome back, {firstName}
-              <span style={{ color: "#a1a1aa" }}> — </span>
-              <span
-                style={{
-                  background: "linear-gradient(90deg, #67e8f9, #22d3ee)",
-                  WebkitBackgroundClip: "text",
-                  backgroundClip: "text",
-                  color: "transparent",
-                }}
-              >
-                Hire Smarter with Nextenti
-              </span>
-            </h1>
-            <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.55)", margin: "3px 0 0" }}>
-              Your hiring pipeline at a glance
-            </p>
-          </div>
-          <Link
-            href="/employer/candidates"
-            style={{
-              position: "relative",
-              zIndex: 1,
-              padding: "9px 18px",
-              background: "#01617a",
-              color: "#fff",
-              borderRadius: "10px",
-              fontWeight: 700,
-              fontSize: "12px",
-              textDecoration: "none",
-              whiteSpace: "nowrap",
-              flexShrink: 0,
-            }}
-          >
-            View Candidate Pool →
+      {error && (
+        <p className={local.alert} role="alert">
+          {error}
+        </p>
+      )}
+
+      {/* Hero */}
+      <section
+        className={styles.hero}
+        style={{ alignItems: "center", justifyContent: "space-between", paddingTop: 52, paddingBottom: 120, marginBottom: -88 }}
+      >
+        <div className={local.heroBody}>
+          <span className={styles.eyebrow}>AI-powered interview scheduling</span>
+          <span className={local.welcome}>Welcome back, {firstName}</span>
+          <h1 className={local.h1}>
+            Hire smarter with <em>Krafziel</em>
+          </h1>
+          <p className={local.lede}>Your hiring pipeline at a glance.</p>
+          <Link href="/employer/candidates" className={local.cta}>
+            View Candidate Pool <span aria-hidden="true">→</span>
           </Link>
         </div>
 
-        {error && (
-          <p style={{ fontSize: "13px", color: "#fecaca", margin: 0 }} role="alert">
-            {error}
-          </p>
-        )}
+        <div className={local.ringCard}>
+          <div className={local.ring} role="img" aria-label={`${activePct} percent active in pipeline`}>
+            <div className={local.ringArc} style={{ "--p": `${activePct}%` } as CSSProperties} />
+            <b className={local.ringNum}>
+              <CountUp value={activePct} />
+            </b>
+          </div>
+          <span className={local.ringText}>
+            <span>Active in pipeline</span>
+            <b>{activeInPipeline} not yet closed</b>
+            <span>
+              {activePct}% of {totalCandidates} candidates
+            </span>
+          </span>
+        </div>
+      </section>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-            gap: "10px",
-          }}
-        >
-          <StatCard label="Total Candidates" value={candidates.length} hint="In the shared pool" accent="#6366f1" />
-          <StatCard
-            label="Active in Pipeline"
-            value={`${activePct}%`}
-            hint={`${activeInPipeline} not yet closed`}
-            accent="#0ea5e9"
-          />
-          <StatCard label="Interviews Today" value={interviewsToday} hint="Scheduled today" accent="#0a275f" />
-          <StatCard label="Added This Month" value={addedThisMonth} hint="New to the pool" accent="#8b5cf6" />
-          <StatCard label="Pending Review" value={pendingReview} hint="Awaiting first look" accent="#f59e0b" />
-          <StatCard label="Hired" value={hiredCount} hint={`${rejectedCount} rejected`} accent="#22c55e" />
-          <StatCard label="Interviews This Week" value={interviewsThisWeek} hint="Next 7 days" accent="#0a275f" />
-          <StatCard
-            label="Offers Extended"
-            value={offersExtended}
-            hint={offersDecided ? `${acceptanceRate}% accepted` : "No decisions yet"}
-            accent="#22c55e"
-          />
+      {/* Key figures */}
+      <section className={local.kpis} aria-label="Key figures">
+        {kpis.map((k) => (
+          <div key={k.label} className={`${styles.glass} ${styles.card} ${local.kpi}`}>
+            <i className={local.kpiBar} style={{ background: k.bar }} />
+            <span className={local.lab}>{k.label}</span>
+            <b className={local.kpiNum}>
+              <CountUp value={k.value} />
+            </b>
+            <span className={local.kpiFoot}>{k.foot}</span>
+          </div>
+        ))}
+      </section>
+
+      {/* Status + upcoming */}
+      <section className={local.split}>
+        <div className={`${styles.glass} ${styles.card} ${local.panel}`}>
+          <div className={local.panelHead}>
+            <h2 className={local.panelTitle}>Candidates by status</h2>
+            <span className={local.muted}>{totalCandidates} in total</span>
+          </div>
+          {totalCandidates > 0 && (
+            <div className={local.segments} role="img" aria-label={statusRows.map((s) => `${s.count} ${s.label.toLowerCase()}`).join(", ")}>
+              {statusRows
+                .filter((s) => s.count > 0)
+                .map((s, i) => (
+                  <div key={s.key} className={styles.growX} style={{ flex: s.count, background: s.color, ...delay(i) }} />
+                ))}
+            </div>
+          )}
+          <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+            {statusRows.map((s, i) => (
+              <li key={s.key} className={local.statusRow}>
+                <span className={local.statusName}>
+                  <i className={local.swatch} style={{ background: s.color }} />
+                  {s.label}
+                </span>
+                <div className={local.track}>
+                  <i className={styles.growX} style={{ width: `${(s.count / maxStatus) * 100}%`, background: s.color, ...delay(i) }} />
+                </div>
+                <b className={local.right}>
+                  <CountUp value={s.count} />
+                </b>
+                <span className={local.pct}>{totalCandidates ? Math.round((s.count / totalCandidates) * 100) : 0}%</span>
+              </li>
+            ))}
+          </ul>
         </div>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "minmax(0, 1.3fr) minmax(0, 1fr)",
-            gap: "14px",
-          }}
-        >
-          <div
-            style={{
-              background: "#fff",
-              border: "1px solid #eef1f5",
-              borderRadius: "16px",
-              padding: "18px 20px",
-              boxShadow: "0 1px 2px rgba(15,23,42,0.04), 0 8px 24px rgba(15,23,42,0.06)",
-            }}
-          >
-            <StatusBreakdown candidates={candidates} compact />
-          </div>
-
-          <div
-            style={{
-              background: "#fff",
-              border: "1px solid #eef1f5",
-              borderRadius: "16px",
-              padding: "16px 18px",
-              display: "flex",
-              flexDirection: "column",
-              boxShadow: "0 1px 2px rgba(15,23,42,0.04), 0 8px 24px rgba(15,23,42,0.06)",
-            }}
-          >
-            <span
-              style={{
-                fontSize: "11px",
-                fontWeight: 800,
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                color: "#94a3b8",
-                marginBottom: "10px",
-                borderLeft: "3px solid #01617a",
-                paddingLeft: "10px",
-                flexShrink: 0,
-              }}
-            >
-              Upcoming Interviews
-            </span>
-
-            <div style={{ maxHeight: "320px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "8px" }}>
-              {dataLoading ? (
-                <p style={{ fontSize: "12px", color: "#94a3b8", margin: 0 }}>Loading…</p>
-              ) : upcomingInterviews.length === 0 ? (
-                <p style={{ fontSize: "12px", color: "#94a3b8", margin: 0 }}>Nothing scheduled yet.</p>
+        <div className={local.stack}>
+          <div className={`${styles.glass} ${styles.card} ${local.panel}`} style={{ flex: 1 }}>
+            <div className={local.panelHead}>
+              <h2 className={local.panelTitle}>Upcoming interviews</h2>
+              {dataLoading || nextUp.length === 0 ? (
+                <Link href="/employer/interviews" className={local.panelLink}>
+                  Schedule
+                </Link>
               ) : (
-                upcomingInterviews.map((interview) => {
+                <span className={local.muted}>{upcomingInterviews.length} scheduled</span>
+              )}
+            </div>
+            {dataLoading || nextUp.length === 0 ? (
+              <div className={local.empty}>
+                <span className={local.emptyIcon}>
+                  <Icon d={CALENDAR_ICON} size={22} sw={1.8} />
+                </span>
+                <b>{dataLoading ? "Loading…" : "Nothing scheduled yet"}</b>
+                {!dataLoading && <span className={local.muted}>Today and the next 7 days are open.</span>}
+              </div>
+            ) : (
+              <div className={local.upcoming}>
+                {upcomingInterviews.map((interview) => {
                   const candidate = candidates.find((c) => c.id === interview.candidate_id);
                   return (
-                    <Link
-                      key={interview.id}
-                      href={`/employer/candidates/${interview.candidate_id}`}
-                      style={{
-                        background: "#f8fafc",
-                        border: "1px solid #e2e8f0",
-                        borderRadius: "10px",
-                        padding: "9px 12px",
-                        textDecoration: "none",
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "2px",
-                      }}
-                    >
-                      <span style={{ fontSize: "12px", fontWeight: 700, color: "#0f172a" }}>
-                        {candidate?.applicant_name ?? "Candidate"}
+                    <Link key={interview.id} href={`/employer/candidates/${interview.candidate_id}`} className={local.upItem}>
+                      <span className={local.upWho}>
+                        <b>{candidate?.applicant_name ?? "Candidate"}</b>
+                        <span>
+                          {formatWhen(interview.scheduled_at)} · with {interview.interviewer_name}
+                        </span>
                       </span>
-                      <span style={{ fontSize: "11px", color: "#64748b" }}>
-                        {interview.interview_type} with {interview.interviewer_name}
-                      </span>
-                      <span style={{ fontSize: "11px", color: "#01617a", fontWeight: 700 }}>
-                        {formatWhen(interview.scheduled_at)}
+                      <span className={styles.chip} style={{ background: "#E8F1FF", color: "#0052CC", textTransform: "capitalize" }}>
+                        {interview.interview_type}
                       </span>
                     </Link>
                   );
-                })
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
-            gap: "14px",
-          }}
-        >
-          <div style={panelCardStyle}>
-            <span style={panelLabelStyle}>Candidates by Source</span>
-            {sourceCounts.length === 0 ? (
-              <p style={{ fontSize: "12px", color: "#94a3b8", margin: 0 }}>No candidates yet.</p>
-            ) : (
-              renderBarRows(sourceCounts)
+                })}
+              </div>
             )}
           </div>
 
-          <div style={panelCardStyle}>
-            <span style={panelLabelStyle}>Interviews by Type</span>
-            {interviewTypeCounts.length === 0 ? (
-              <p style={{ fontSize: "12px", color: "#94a3b8", margin: 0 }}>No interviews yet.</p>
-            ) : (
-              renderBarRows(interviewTypeCounts)
-            )}
+          <div className={`${styles.glass} ${styles.card} ${local.strip}`}>
+            {[
+              { label: "Interviews today", value: interviewsToday },
+              { label: "This week", value: interviewsThisWeek },
+              { label: "Added this month", value: addedThisMonth },
+            ].map((s) => (
+              <div key={s.label} className={local.stripCell}>
+                <span className={local.lab}>{s.label}</span>
+                <b className={local.stripNum}>
+                  <CountUp value={s.value} />
+                </b>
+              </div>
+            ))}
           </div>
         </div>
-      </div>
+      </section>
+
+      {/* Types + sources */}
+      <section className={local.halves}>
+        <div className={`${styles.glass} ${styles.card} ${local.panel}`}>
+          <div className={local.panelHead}>
+            <h2 className={local.panelTitle}>Interviews by type</h2>
+            <span className={local.muted}>{interviews.length} total</span>
+          </div>
+          {interviewTypeCounts.length === 0 ? (
+            <p className={local.muted} style={{ margin: 0 }}>
+              No interviews yet.
+            </p>
+          ) : (
+            <ul className={local.bars}>
+              {interviewTypeCounts.map((row, idx) => (
+                <li key={row.label} className={local.barCol}>
+                  <b>
+                    <CountUp value={row.count} />
+                  </b>
+                  <div
+                    className={`${styles.growY} ${local.barFill} ${idx === 0 ? local.barFillTop : ""}`}
+                    style={{ height: `${Math.max(8, (row.count / maxType) * 170)}px`, ...delay(idx) }}
+                  />
+                  <span className={local.barLabel} title={row.label}>
+                    {row.label}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className={`${styles.glass} ${styles.card} ${local.panel}`}>
+          <div className={local.panelHead}>
+            <h2 className={local.panelTitle}>Candidates by source</h2>
+            <span className={local.muted}>Top 6</span>
+          </div>
+          {sourceCounts.length === 0 ? (
+            <p className={local.muted} style={{ margin: 0 }}>
+              No candidates yet.
+            </p>
+          ) : (
+            <ol className={local.rank}>
+              {sourceCounts.map((row, idx) => (
+                <li key={row.label} className={local.rankRow}>
+                  <span className={local.rankIdx}>{idx + 1}</span>
+                  <span className={local.rankName} title={row.label}>
+                    {row.label}
+                  </span>
+                  <div className={local.rankBar}>
+                    <i
+                      className={`${styles.growX} ${idx === 0 ? local.rankTop : ""}`}
+                      style={{ width: `${(row.count / maxSource) * 100}%`, ...delay(idx) }}
+                    />
+                  </div>
+                  <b className={local.right}>{row.count}</b>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+      </section>
     </DashboardShell>
   );
 }

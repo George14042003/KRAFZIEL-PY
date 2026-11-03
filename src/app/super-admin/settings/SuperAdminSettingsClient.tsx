@@ -1,16 +1,20 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { SuperAdminShell } from "@/components/superadmin/SuperAdminShell";
-import { getAdminPalette } from "@/components/superadmin/adminStyles";
-import { useTheme } from "@/contexts/ThemeContext";
+import { AuroraLoading } from "@/components/aurora/AuroraLoading";
+import { AuroraPageHeader } from "@/components/aurora/AuroraPageHeader";
+import styles from "@/components/aurora/aurora.module.css";
 import { useSession } from "@/hooks/useSession";
 import { changePassword, updateProfile } from "@/lib/auth";
 
+function initialsFor(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase();
+}
+
 export function SuperAdminSettingsClient() {
   const { user, loading } = useSession("super_admin");
-  const { theme } = useTheme();
-  const palette = getAdminPalette(theme);
 
   const [fullName, setFullName] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
@@ -28,13 +32,7 @@ export function SuperAdminSettingsClient() {
     if (user) setFullName(user.full_name);
   }, [user]);
 
-  if (loading || !user) {
-    return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: palette.textMuted, fontSize: "14px", background: palette.bg }}>
-        Loading…
-      </div>
-    );
-  }
+  if (loading || !user) return <AuroraLoading />;
 
   async function handleProfileSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -77,89 +75,106 @@ export function SuperAdminSettingsClient() {
     }
   }
 
+  const formStyle = { display: "flex", flexDirection: "column", gap: "20px", borderRadius: "32px", padding: "32px" } as const;
+  const titleStyle = { fontWeight: 600, fontSize: "22px", margin: 0, color: "var(--text)" } as const;
+  const circle = {
+    width: "64px",
+    height: "64px",
+    borderRadius: "50%",
+    flexShrink: 0,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  } as const;
+
   return (
-    <SuperAdminShell user={user}>
-      <div style={{ display: "flex", flexDirection: "column", gap: "20px", maxWidth: "560px" }}>
-        <div>
-          <h1 style={{ fontSize: "20px", fontWeight: 800, color: palette.textPrimary, margin: 0 }}>Settings</h1>
-          <p style={{ fontSize: "12.5px", color: palette.textMuted, margin: "4px 0 0" }}>
-            Manage your super admin account details and password.
-          </p>
-        </div>
+    <>
+      <AuroraPageHeader eyebrow="Account" title="Settings" subtitle="Manage your super admin account details and password." />
 
-        <form onSubmit={handleProfileSubmit} style={{ ...palette.card, display: "flex", flexDirection: "column", gap: "14px" }}>
-          <h2 style={{ fontSize: "13px", fontWeight: 800, color: palette.textPrimary, margin: 0, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-            Profile
-          </h2>
-
-          <div>
-            <label style={palette.label}>Full Name</label>
-            <input value={fullName} onChange={(e) => setFullName(e.target.value)} style={palette.input} required />
+      <div className={styles.two}>
+        <form onSubmit={handleProfileSubmit} className={styles.glass} style={formStyle}>
+          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+            <span className={styles.display} style={{ ...circle, background: "#0066ff", color: "#fff", fontWeight: 700, fontSize: "20px" }}>
+              {initialsFor(fullName || user.full_name)}
+            </span>
+            <h2 className={styles.display} style={titleStyle}>
+              Profile
+            </h2>
           </div>
 
-          <div>
-            <label style={palette.label}>Email Address</label>
-            <input value={user.email} disabled style={{ ...palette.input, opacity: 0.6 }} />
+          <div className={styles.field}>
+            <label className={styles.lbl} htmlFor="sa-name">
+              Full Name
+            </label>
+            <input id="sa-name" className={styles.inp} value={fullName} onChange={(e) => setFullName(e.target.value)} required />
+          </div>
+
+          <div className={styles.field}>
+            <label className={styles.lbl} htmlFor="sa-email">
+              Email Address
+            </label>
+            <input id="sa-email" className={styles.inp} value={user.email} disabled />
           </div>
 
           {profileError && (
-            <p style={{ fontSize: "12px", color: palette.negative, margin: 0 }} role="alert">
+            <p style={{ fontSize: "13px", color: "#FB7185", margin: 0 }} role="alert">
               {profileError}
             </p>
           )}
-          {profileMessage && <p style={{ fontSize: "12px", color: palette.positive, margin: 0 }}>{profileMessage}</p>}
+          {profileMessage && <p style={{ fontSize: "13px", color: "#34D399", margin: 0 }}>{profileMessage}</p>}
 
           <div>
-            <button type="submit" disabled={savingProfile} style={{ ...palette.primaryButton, opacity: savingProfile ? 0.7 : 1 }}>
+            <button type="submit" disabled={savingProfile} className={`${styles.btn} ${styles.btnAccent}`}>
               {savingProfile ? "Saving…" : "Save Profile"}
             </button>
           </div>
         </form>
 
-        <form onSubmit={handlePasswordSubmit} style={{ ...palette.card, display: "flex", flexDirection: "column", gap: "14px" }}>
-          <h2 style={{ fontSize: "13px", fontWeight: 800, color: palette.textPrimary, margin: 0, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-            Change Password
-          </h2>
+        <form onSubmit={handlePasswordSubmit} className={styles.glass} style={formStyle}>
+          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+            <span style={{ ...circle, border: "1.5px dashed var(--line-2)" }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent-ink)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M5 11h14v10H5z M8 11V8a4 4 0 0 1 8 0v3" />
+              </svg>
+            </span>
+            <h2 className={styles.display} style={titleStyle}>
+              Change Password
+            </h2>
+          </div>
 
-          <div>
-            <label style={palette.label}>Current Password</label>
-            <input
-              type="password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              style={palette.input}
-              required
-            />
+          <div className={styles.field}>
+            <label className={styles.lbl} htmlFor="sa-cur">
+              Current Password
+            </label>
+            <input id="sa-cur" className={styles.inp} type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required />
           </div>
-          <div>
-            <label style={palette.label}>New Password</label>
-            <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} style={palette.input} required />
+          <div className={styles.field}>
+            <label className={styles.lbl} htmlFor="sa-new">
+              New Password
+            </label>
+            <input id="sa-new" className={styles.inp} type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required />
           </div>
-          <div>
-            <label style={palette.label}>Confirm New Password</label>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              style={palette.input}
-              required
-            />
+          <div className={styles.field}>
+            <label className={styles.lbl} htmlFor="sa-conf">
+              Confirm New Password
+            </label>
+            <input id="sa-conf" className={styles.inp} type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
           </div>
 
           {passwordError && (
-            <p style={{ fontSize: "12px", color: palette.negative, margin: 0 }} role="alert">
+            <p style={{ fontSize: "13px", color: "#FB7185", margin: 0 }} role="alert">
               {passwordError}
             </p>
           )}
-          {passwordMessage && <p style={{ fontSize: "12px", color: palette.positive, margin: 0 }}>{passwordMessage}</p>}
+          {passwordMessage && <p style={{ fontSize: "13px", color: "#34D399", margin: 0 }}>{passwordMessage}</p>}
 
           <div>
-            <button type="submit" disabled={savingPassword} style={{ ...palette.primaryButton, opacity: savingPassword ? 0.7 : 1 }}>
+            <button type="submit" disabled={savingPassword} className={`${styles.btn} ${styles.btnLight}`}>
               {savingPassword ? "Updating…" : "Update Password"}
             </button>
           </div>
         </form>
       </div>
-    </SuperAdminShell>
+    </>
   );
 }

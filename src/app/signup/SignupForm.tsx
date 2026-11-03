@@ -1,32 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type CSSProperties, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
+import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
-import { AuthShell } from "@/components/auth/AuthShell";
-import { getAuthPalette } from "@/components/auth/authPalette";
-import { BriefcaseIcon, GoogleIcon, UserIcon } from "@/components/auth/icons";
-import { useTheme } from "@/contexts/ThemeContext";
+import { AuthShell, RoleSwap, RoleTabs } from "@/components/auth/AuthShell";
+import s from "@/components/auth/AuthShell.module.css";
+import { GoogleIcon } from "@/components/auth/icons";
+import aurora from "@/components/aurora/aurora.module.css";
 import { loginWithGoogle, register, resendVerificationEmail } from "@/lib/auth";
 import { requestGoogleAccessToken } from "@/lib/google";
 
 // This page only ever handles the two public-facing roles — Super Admin
 // accounts are provisioned by an existing admin, never via public signup.
 type Role = "candidate" | "employer";
-
-const tabBase: CSSProperties = {
-  flex: 1,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: "6px",
-  padding: "9px",
-  border: "none",
-  borderRadius: "11px",
-  fontSize: "12px",
-  fontWeight: 700,
-  cursor: "pointer",
-};
 
 const COPY: Record<
   Role,
@@ -75,31 +62,16 @@ const HERO_COPY: Record<Role, { headline: string; subhead: string; features: str
   },
 };
 
+const LEGAL = <>By continuing you agree to Krafziel&apos;s Terms &amp; Privacy Policy.</>;
+
 export function SignupForm() {
   const router = useRouter();
-  const { theme } = useTheme();
-  const palette = getAuthPalette(theme);
-  const inputStyle: CSSProperties = {
-    width: "100%",
-    padding: "11px 14px",
-    background: palette.inputBg,
-    border: palette.inputBorder,
-    borderRadius: "12px",
-    fontSize: "13px",
-    color: palette.inputText,
-    boxSizing: "border-box",
-  };
-  const labelStyle: CSSProperties = {
-    display: "block",
-    fontSize: "11px",
-    fontWeight: 700,
-    color: palette.label,
-    marginBottom: "6px",
-  };
-  const [role, setRole] = useState<Role>("candidate");
+  const searchParams = useSearchParams();
+  // Invite emails link here with the candidate's address already filled in.
+  const [role, setRole] = useState<Role>(searchParams.get("role") === "employer" ? "employer" : "candidate");
   const [fullName, setFullName] = useState("");
   const [organizationName, setOrganizationName] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(searchParams.get("email") ?? "");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [agreed, setAgreed] = useState(false);
@@ -113,20 +85,6 @@ export function SignupForm() {
   const isCandidate = role === "candidate";
   const copy = COPY[role];
   const hero = HERO_COPY[role];
-
-  const candidateTabStyle: CSSProperties = {
-    ...tabBase,
-    background: isCandidate ? palette.tabActiveBg : "transparent",
-    color: isCandidate ? palette.tabActiveText : palette.tabInactiveText,
-    boxShadow: isCandidate ? palette.tabActiveShadow : "none",
-  };
-
-  const employerTabStyle: CSSProperties = {
-    ...tabBase,
-    background: !isCandidate ? palette.tabActiveBg : "transparent",
-    color: !isCandidate ? palette.tabActiveText : palette.tabInactiveText,
-    boxShadow: !isCandidate ? palette.tabActiveShadow : "none",
-  };
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -194,250 +152,162 @@ export function SignupForm() {
 
   if (submittedEmail) {
     return (
-      <AuthShell headline={hero.headline} subhead={hero.subhead} features={hero.features} mirrored={!isCandidate}>
-        <div
-          style={{
-            background: palette.cardBg,
-            backdropFilter: "blur(22px)",
-            WebkitBackdropFilter: "blur(22px)",
-            border: palette.cardBorder,
-            borderRadius: "28px",
-            padding: "36px",
-            boxShadow: "0 25px 60px rgba(0,0,0,.35)",
-            display: "flex",
-            flexDirection: "column",
-            gap: "16px",
-            textAlign: "center",
-            alignItems: "center",
-          }}
-        >
-          <div
-            style={{
-              width: "48px",
-              height: "48px",
-              borderRadius: "50%",
-              background: palette.iconCircleBg,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "22px",
-            }}
-          >
-            ✉️
-          </div>
-          <h2 style={{ fontSize: "20px", fontWeight: 800, color: palette.heading, margin: 0 }}>Check your email</h2>
-          <p style={{ fontSize: "13px", color: palette.subheading, margin: 0, lineHeight: 1.6 }}>
-            We sent a confirmation link to <strong style={{ color: palette.heading }}>{submittedEmail}</strong>. Click it
-            to activate your account, then sign in.
-          </p>
-
-          {resendMessage && (
-            <p style={{ fontSize: "12px", color: palette.link, margin: 0 }}>{resendMessage}</p>
-          )}
-
-          <button
-            type="button"
-            disabled={resending}
-            onClick={handleResend}
-            style={{
-              marginTop: "8px",
-              padding: "10px 16px",
-              border: palette.googleBorder,
-              background: palette.googleBg,
-              borderRadius: "10px",
-              fontSize: "12px",
-              fontWeight: 700,
-              color: palette.googleText,
-              cursor: resending ? "default" : "pointer",
-              opacity: resending ? 0.7 : 1,
-            }}
-          >
-            {resending ? "Resending…" : "Resend email"}
-          </button>
-
-          <Link href="/login" style={{ fontSize: "12px", fontWeight: 700, color: palette.link, marginTop: "8px" }}>
-            Back to sign in
-          </Link>
+      <AuthShell headline={hero.headline} subhead={hero.subhead} features={hero.features} centered>
+        <div className={s.iconCircle} aria-hidden="true">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 6h18v12H3z" />
+            <path d="M3 7l9 6 9-6" />
+          </svg>
         </div>
+        <h2 className={s.title} style={{ margin: 0 }}>
+          Check your email
+        </h2>
+        <p className={s.centerText}>
+          We sent a confirmation link to <strong className={s.strong}>{submittedEmail}</strong>. Click it to activate your account, then
+          sign in.
+        </p>
+
+        {resendMessage && <p className={s.ok}>{resendMessage}</p>}
+
+        <button type="button" disabled={resending} onClick={handleResend} className={`${aurora.btn} ${aurora.btnGlass} ${aurora.btnSm}`}>
+          {resending ? "Resending…" : "Resend email"}
+        </button>
+
+        <Link href="/login" className={s.link}>
+          Back to sign in
+        </Link>
       </AuthShell>
     );
   }
 
   return (
-    <AuthShell headline={hero.headline} subhead={hero.subhead} features={hero.features} mirrored={!isCandidate}>
-      <div
-        style={{
-          background: palette.cardBg,
-          backdropFilter: "blur(22px)",
-          WebkitBackdropFilter: "blur(22px)",
-          border: palette.cardBorder,
-          borderRadius: "28px",
-          padding: "36px",
-          boxShadow: "0 25px 60px rgba(0,0,0,.35)",
-          display: "flex",
-          flexDirection: "column",
-          gap: "24px",
-        }}
-      >
-        <div style={{ display: "flex", background: palette.tabWrapBg, borderRadius: "14px", padding: "4px", gap: "4px" }}>
-          <button type="button" style={candidateTabStyle} onClick={() => setRole("candidate")}>
-            <UserIcon size={14} color={isCandidate ? palette.tabActiveText : palette.tabInactiveText} />
-            Candidate
-          </button>
-          <button type="button" style={employerTabStyle} onClick={() => setRole("employer")}>
-            <BriefcaseIcon size={14} color={!isCandidate ? palette.tabActiveText : palette.tabInactiveText} />
-            Employer
-          </button>
-        </div>
+    <AuthShell headline={hero.headline} subhead={hero.subhead} features={hero.features} footnote={LEGAL} tone={role}>
+      <RoleTabs role={role} onChange={setRole} />
 
-        <div style={{ textAlign: "left" }}>
-          <h2 style={{ fontSize: "22px", fontWeight: 800, color: palette.heading, margin: "0 0 4px", letterSpacing: "-0.01em" }}>
-            {copy.heading}
-          </h2>
-          <p style={{ fontSize: "13px", color: palette.subheading, margin: 0 }}>{copy.subheading}</p>
-        </div>
-
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-          <div>
-            <label style={labelStyle}>Full Name</label>
-            <input
-              type="text"
-              required
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              placeholder={copy.namePlaceholder}
-              style={inputStyle}
-            />
-          </div>
-
-          {!isCandidate && (
-            <div>
-              <label style={labelStyle}>Company / Organization Name</label>
-              <input
-                type="text"
-                required
-                value={organizationName}
-                onChange={(e) => setOrganizationName(e.target.value)}
-                placeholder="Acme Corp"
-                style={inputStyle}
-              />
-            </div>
-          )}
-
-          <div>
-            <label style={labelStyle}>Email Address</label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder={copy.emailPlaceholder}
-              style={inputStyle}
-            />
-          </div>
-
-          <div>
-            <label style={labelStyle}>Password</label>
-            <input
-              type="password"
-              required
-              minLength={8}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="At least 8 characters"
-              style={inputStyle}
-            />
-          </div>
-
-          <div>
-            <label style={labelStyle}>Confirm Password</label>
-            <input
-              type="password"
-              required
-              minLength={8}
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="••••••••"
-              style={inputStyle}
-            />
-          </div>
-
-          <label style={{ display: "flex", alignItems: "flex-start", gap: "8px", fontSize: "12px", color: palette.checkboxText, cursor: "pointer" }}>
-            <input
-              type="checkbox"
-              checked={agreed}
-              onChange={(e) => setAgreed(e.target.checked)}
-              style={{ width: "14px", height: "14px", marginTop: "2px", accentColor: "#01617a", flexShrink: 0 }}
-            />
-            I agree to Nextenti&apos;s Terms &amp; Privacy Policy.
-          </label>
-
-          {error && (
-            <p style={{ fontSize: "12px", color: "#dc2626", margin: 0 }} role="alert">
-              {error}
-            </p>
-          )}
-
-          <button
-            type="submit"
-            disabled={submitting}
-            style={{
-              padding: "12px",
-              background: "#01617a",
-              color: "#fff",
-              border: "none",
-              borderRadius: "12px",
-              fontWeight: 700,
-              fontSize: "13px",
-              cursor: submitting ? "default" : "pointer",
-              marginTop: "4px",
-              opacity: submitting ? 0.7 : 1,
-            }}
-          >
-            {submitting ? "Creating account…" : copy.submitLabel}
-          </button>
-        </form>
-
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <div style={{ flex: 1, height: "1px", background: palette.dividerLine }} />
-          <span style={{ fontSize: "11px", color: palette.dividerText, fontWeight: 600 }}>OR</span>
-          <div style={{ flex: 1, height: "1px", background: palette.dividerLine }} />
-        </div>
-
-        <button
-          type="button"
-          disabled={googleSubmitting}
-          onClick={handleGoogleSignIn}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "10px",
-            padding: "11px",
-            border: palette.googleBorder,
-            background: palette.googleBg,
-            borderRadius: "12px",
-            fontSize: "13px",
-            fontWeight: 600,
-            color: palette.googleText,
-            cursor: googleSubmitting ? "default" : "pointer",
-            opacity: googleSubmitting ? 0.7 : 1,
-          }}
-        >
-          <GoogleIcon size={16} />
-          {googleSubmitting ? "Connecting…" : "Continue with Google"}
-        </button>
-
-        <p style={{ textAlign: "center", fontSize: "12px", color: palette.subheading, margin: 0 }}>
-          Already have an account?{" "}
-          <Link href="/login" style={{ fontWeight: 700, textDecoration: "none", color: palette.link }}>
-            Sign in
-          </Link>
+      <div>
+        <h2 className={s.title}>
+          <RoleSwap role={role} candidate={COPY.candidate.heading} employer={COPY.employer.heading} />
+        </h2>
+        <p className={s.sub}>
+          <RoleSwap role={role} candidate={COPY.candidate.subheading} employer={COPY.employer.subheading} />
         </p>
       </div>
 
-      <p style={{ textAlign: "center", fontSize: "11px", color: palette.mutedText, margin: 0 }}>
-        By continuing you agree to Nextenti&apos;s Terms &amp; Privacy Policy.
+      <form suppressHydrationWarning onSubmit={handleSubmit} className={s.form}>
+        <div className={aurora.field}>
+          <label className={aurora.lbl} htmlFor="su-name">
+            Full Name
+          </label>
+          <input suppressHydrationWarning
+            id="su-name"
+            className={aurora.inp}
+            type="text"
+            required
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            placeholder={copy.namePlaceholder}
+          />
+        </div>
+
+        <div className={`${s.collapse} ${isCandidate ? s.collapseClosed : ""}`} aria-hidden={isCandidate} inert={isCandidate}>
+          <div className={s.collapseInner}>
+            <div className={aurora.field}>
+              <label className={aurora.lbl} htmlFor="su-org">
+                Company / Organization Name
+              </label>
+              <input suppressHydrationWarning
+                id="su-org"
+                className={aurora.inp}
+                type="text"
+                required={!isCandidate}
+                tabIndex={isCandidate ? -1 : undefined}
+                value={organizationName}
+                onChange={(e) => setOrganizationName(e.target.value)}
+                placeholder="Acme Corp"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className={aurora.field}>
+          <label className={aurora.lbl} htmlFor="su-email">
+            Email Address
+          </label>
+          <input suppressHydrationWarning
+            id="su-email"
+            className={aurora.inp}
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder={copy.emailPlaceholder}
+          />
+        </div>
+
+        <div className={aurora.field}>
+          <label className={aurora.lbl} htmlFor="su-pass">
+            Password
+          </label>
+          <input suppressHydrationWarning
+            id="su-pass"
+            className={aurora.inp}
+            type="password"
+            required
+            minLength={8}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="At least 8 characters"
+          />
+        </div>
+
+        <div className={aurora.field}>
+          <label className={aurora.lbl} htmlFor="su-confirm">
+            Confirm Password
+          </label>
+          <input suppressHydrationWarning
+            id="su-confirm"
+            className={aurora.inp}
+            type="password"
+            required
+            minLength={8}
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            placeholder="••••••••"
+          />
+        </div>
+
+        <label className={s.check}>
+          <input suppressHydrationWarning type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
+          I agree to Krafziel&apos;s Terms &amp; Privacy Policy.
+        </label>
+
+        {error && (
+          <p className={s.err} role="alert">
+            {error}
+          </p>
+        )}
+
+        <button type="submit" disabled={submitting} className={`${aurora.btn} ${aurora.btnAccent} ${s.full}`}>
+          {submitting ? "Creating account…" : <RoleSwap role={role} candidate={COPY.candidate.submitLabel} employer={COPY.employer.submitLabel} />}
+        </button>
+      </form>
+
+      {process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID && (
+        <>
+          <div className={s.divider}>OR</div>
+
+          <button type="button" disabled={googleSubmitting} onClick={handleGoogleSignIn} className={`${aurora.btn} ${aurora.btnGlass} ${s.full}`}>
+            <GoogleIcon size={16} />
+            {googleSubmitting ? "Connecting…" : "Continue with Google"}
+          </button>
+        </>
+      )}
+
+      <p className={s.foot}>
+        Already have an account?{" "}
+        <Link href="/login" className={s.link}>
+          Sign in
+        </Link>
       </p>
     </AuthShell>
   );

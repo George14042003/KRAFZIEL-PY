@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { ForgotPasswordForm } from "./ForgotPasswordForm";
 
 export const metadata: Metadata = {
-  title: "Forgot Password | Nextenti Talent Flow",
+  title: "Forgot Password | Krafziel",
 };
 
 export default function ForgotPasswordPage() {

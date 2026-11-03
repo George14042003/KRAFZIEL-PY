@@ -45,7 +45,7 @@ export function ScrollProgressBar() {
         style={{
           height: "100%",
           width: `${progress}%`,
-          background: "linear-gradient(90deg, #0891b2, #10b981)",
+          background: "linear-gradient(90deg, #0066ff, #00e5ff)",
           transition: "width 0.1s linear",
         }}
       />

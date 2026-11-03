@@ -73,17 +73,17 @@ export function CalendarPicker({
         <button
           type="button"
           onClick={() => setVisibleMonth(new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() - 1, 1))}
-          style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: "13px", color: "#64748b", padding: "4px 8px" }}
+          style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: "13px", color: "var(--text-3)", padding: "4px 8px" }}
         >
           ←
         </button>
-        <span style={{ fontSize: "13px", fontWeight: 700, color: "#0f172a" }}>
+        <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--text)" }}>
           {visibleMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" })}
         </span>
         <button
           type="button"
           onClick={() => setVisibleMonth(new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 1))}
-          style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: "13px", color: "#64748b", padding: "4px 8px" }}
+          style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: "13px", color: "var(--text-3)", padding: "4px 8px" }}
         >
           →
         </button>
@@ -91,7 +91,7 @@ export function CalendarPicker({
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "4px" }}>
         {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
-          <div key={i} style={{ textAlign: "center", fontSize: "10px", fontWeight: 800, color: "#94a3b8", padding: "2px 0" }}>
+          <div key={i} style={{ textAlign: "center", fontSize: "10px", fontWeight: 800, color: "var(--text-4)", padding: "2px 0" }}>
             {d}
           </div>
         ))}
@@ -109,9 +109,9 @@ export function CalendarPicker({
               style={{
                 aspectRatio: "1",
                 borderRadius: "8px",
-                border: isToday ? "1px solid #01617a" : "1px solid transparent",
-                background: isSelected ? "#01617a" : "transparent",
-                color: isPast ? "#cbd5e1" : isSelected ? "#fff" : "#0f172a",
+                border: isToday ? "1px solid #0066FF" : "1px solid transparent",
+                background: isSelected ? "#0066FF" : "transparent",
+                color: isPast ? "var(--text-5)" : isSelected ? "#FFFFFF" : "var(--text)",
                 fontSize: "12px",
                 fontWeight: isSelected ? 700 : 500,
                 cursor: isPast ? "default" : "pointer",
@@ -124,7 +124,7 @@ export function CalendarPicker({
       </div>
 
       <div>
-        <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: "#334155", marginBottom: "6px" }}>
+        <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: "var(--text-3)", marginBottom: "6px" }}>
           Time
         </label>
         <select
@@ -133,10 +133,12 @@ export function CalendarPicker({
           style={{
             width: "100%",
             padding: "9px 12px",
-            border: "1px solid #e2e8f0",
-            borderRadius: "10px",
+            border: "1px solid var(--line-strong)",
+            borderRadius: "12px",
             fontSize: "13px",
-            color: "#0f172a",
+            color: "var(--text)",
+            background: "var(--input-bg)",
+            colorScheme: "dark",
           }}
         >
           {TIME_OPTIONS.map((t) => (
@@ -148,9 +150,9 @@ export function CalendarPicker({
       </div>
 
       {parsed && (
-        <p style={{ fontSize: "11.5px", color: "#64748b", margin: 0 }}>
+        <p style={{ fontSize: "11.5px", color: "var(--text-3)", margin: 0 }}>
           Selected:{" "}
-          <strong style={{ color: "#0f172a" }}>
+          <strong style={{ color: "var(--text)" }}>
             {parsed.toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
           </strong>
         </p>
@@ -195,9 +197,8 @@ export function CalendarPickerField({
         style={{
           ...inputStyle,
           textAlign: "left",
-          background: "#fff",
           cursor: "pointer",
-          color: value ? "#0f172a" : "#94a3b8",
+          color: value ? "var(--text)" : "var(--text-5)",
         }}
       >
         {label}
@@ -210,11 +211,11 @@ export function CalendarPickerField({
             left: 0,
             zIndex: 30,
             width: "260px",
-            background: "#fff",
-            border: "1px solid #e2e8f0",
-            borderRadius: "14px",
-            padding: "14px",
-            boxShadow: "0 20px 45px rgba(15,23,42,0.18)",
+            background: "var(--pop-bg)",
+            border: "1px solid var(--line-strong)",
+            borderRadius: "20px",
+            padding: "16px",
+            boxShadow: "var(--pop-shadow)",
           }}
         >
           <CalendarPicker value={value} onChange={onChange} />

@@ -3,8 +3,8 @@ import { Suspense } from "react";
 import { LoginForm } from "./LoginForm";
 
 export const metadata: Metadata = {
-  title: "Sign In | Nextenti Talent Flow",
-  description: "Sign in to Nextenti Talent Flow as a candidate or employer.",
+  title: "Sign In | Krafziel",
+  description: "Sign in to Krafziel Talent Flow as a candidate or employer.",
 };
 
 export default function LoginPage() {

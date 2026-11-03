@@ -1,8 +1,9 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useContext, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { AuroraLayoutContext } from "@/components/aurora/AuroraLayoutContext";
 import { Logo } from "@/components/Logo";
 import { HomeIcon } from "@/components/dashboard/navIcons";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -16,7 +17,13 @@ const TABS = [
   { label: "Settings", href: "/super-admin/settings" },
 ];
 
-export function SuperAdminShell({ user, children }: { user: AuthUser; children: ReactNode }) {
+export function SuperAdminShell(props: { user: AuthUser; children: ReactNode }) {
+  const inLayout = useContext(AuroraLayoutContext);
+  if (inLayout) return <>{props.children}</>;
+  return <LegacyAdminShell {...props} />;
+}
+
+function LegacyAdminShell({ user, children }: { user: AuthUser; children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { theme } = useTheme();
@@ -43,7 +50,7 @@ export function SuperAdminShell({ user, children }: { user: AuthUser; children: 
           <Logo size={30} radius={8} />
           <div>
             <div style={{ fontSize: "14px", fontWeight: 800, letterSpacing: "-0.02em", color: palette.textPrimary }}>
-              Nextenti Admin
+              Krafziel Admin
             </div>
             <div
               style={{
@@ -66,7 +73,7 @@ export function SuperAdminShell({ user, children }: { user: AuthUser; children: 
           </div>
           <Link
             href="/"
-            title="Go to the Nextenti homepage"
+            title="Go to the Krafziel homepage"
             style={{
               ...palette.secondaryButton,
               display: "flex",

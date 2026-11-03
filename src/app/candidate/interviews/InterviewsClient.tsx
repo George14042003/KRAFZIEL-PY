@@ -2,11 +2,18 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { CANDIDATE_NAV, DashboardShell } from "@/components/dashboard/DashboardShell";
-import { StatusBadge } from "@/components/dashboard/StatusBadge";
-import { cardStyle } from "@/components/dashboard/formStyles";
+import aurora from "@/components/aurora/aurora.module.css";
+import { AuroraLoading } from "@/components/aurora/AuroraLoading";
+import { AuroraPageHeader } from "@/components/aurora/AuroraPageHeader";
 import { useSession } from "@/hooks/useSession";
+import { useOpenEdition } from "@/lib/edition";
 import { getMyPortal, type PortalInterview } from "@/lib/candidates";
+import s from "../candidate.module.css";
+import { StatusChip } from "../ui";
+
+const COLS = "1.2fr 1.6fr 1.3fr .8fr 1.1fr 1fr";
+
+type Filter = "all" | "upcoming" | "past";
 
 function formatWhen(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {
@@ -27,6 +34,7 @@ export function InterviewsClient() {
   const [interviews, setInterviews] = useState<PortalInterview[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<Filter>("all");
 
   useEffect(() => {
     if (!user) return;
@@ -36,156 +44,103 @@ export function InterviewsClient() {
       .finally(() => setDataLoading(false));
   }, [user]);
 
-  if (loading || !user) {
-    return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-secondary)", fontSize: "14px" }}>
-        Loading…
-      </div>
-    );
-  }
+  const openEdition = useOpenEdition();
+  if (loading || !user) return <AuroraLoading />;
 
-  const sorted = [...interviews].sort(
+  const sorted = [...interviews]
+    .filter((i) => !openEdition || i.interview_type === "video") // open source edition: video only
+    .sort(
     (a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime()
   );
   const upcoming = sorted.filter(isUpcoming);
   const past = sorted.filter((i) => !isUpcoming(i));
+  const shown = filter === "upcoming" ? upcoming : filter === "past" ? past : sorted;
 
-  function renderRow(interview: PortalInterview) {
-    return (
-      <div
-        key={interview.id}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: "12px",
-          flexWrap: "wrap",
-          padding: "14px 16px",
-          background: "#f8fafc",
-          border: "1px solid #e2e8f0",
-          borderRadius: "12px",
-        }}
-      >
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
-            <span style={{ fontSize: "13px", fontWeight: 700, color: "#0f172a", textTransform: "capitalize" }}>
-              {interview.interview_type} interview
-            </span>
-            <StatusBadge status={interview.status} />
-          </div>
-          <div style={{ fontSize: "12px", color: "#64748b" }}>with {interview.interviewer_name}</div>
-          <div style={{ fontSize: "12px", color: "#01617a", fontWeight: 700, marginTop: "2px" }}>
-            {formatWhen(interview.scheduled_at)} · {interview.duration_minutes} min
-          </div>
-        </div>
-        {interview.interview_type === "video" && interview.status === "scheduled" && (
-          <Link
-            href={`/call/${interview.id}`}
-            target="_blank"
-            style={{
-              padding: "8px 16px",
-              background: "#01617a",
-              color: "#fff",
-              borderRadius: "10px",
-              fontWeight: 700,
-              fontSize: "12px",
-              textDecoration: "none",
-              whiteSpace: "nowrap",
-            }}
-          >
-            Join Call
-          </Link>
-        )}
-        {interview.interview_type === "bot" && interview.status === "scheduled" && (
-          <Link
-            href={`/bot-interview/${interview.id}`}
-            target="_blank"
-            style={{
-              padding: "8px 16px",
-              background: "#01617a",
-              color: "#fff",
-              borderRadius: "10px",
-              fontWeight: 700,
-              fontSize: "12px",
-              textDecoration: "none",
-              whiteSpace: "nowrap",
-            }}
-          >
-            Take Interview
-          </Link>
-        )}
-      </div>
-    );
-  }
+  const filters: { value: Filter; label: string; count: number }[] = [
+    { value: "all", label: "All", count: sorted.length },
+    { value: "upcoming", label: "Upcoming", count: upcoming.length },
+    { value: "past", label: "Past", count: past.length },
+  ];
 
   return (
-    <DashboardShell user={user} nav={CANDIDATE_NAV}>
-      <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-        <div>
-          <h1 style={{ fontSize: "20px", fontWeight: 800, color: "var(--text-primary)", margin: 0, letterSpacing: "-0.01em" }}>
-            My Interviews
-          </h1>
-          <p style={{ fontSize: "12px", color: "var(--text-tertiary)", margin: "2px 0 0" }}>
-            Every interview scheduled for you, past and upcoming.
-          </p>
-        </div>
+    <>
+      <AuroraPageHeader
+        eyebrow="Schedule"
+        title="My Interviews"
+        subtitle={`${interviews.length} interviews · past and upcoming`}
+      />
 
-        {error && (
-          <p style={{ fontSize: "13px", color: "#fecaca", margin: 0 }} role="alert">
-            {error}
-          </p>
-        )}
+      {error && (
+        <p className={s.error} role="alert">
+          {error}
+        </p>
+      )}
 
-        <div style={cardStyle}>
-          <span
-            style={{
-              display: "block",
-              fontSize: "11px",
-              fontWeight: 800,
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              color: "#94a3b8",
-              marginBottom: "14px",
-              borderLeft: "3px solid #01617a",
-              paddingLeft: "10px",
-            }}
-          >
-            Upcoming
-          </span>
-          {dataLoading ? (
-            <p style={{ fontSize: "12px", color: "#94a3b8", margin: 0 }}>Loading…</p>
-          ) : upcoming.length === 0 ? (
-            <p style={{ fontSize: "12px", color: "#94a3b8", margin: 0 }}>Nothing scheduled yet.</p>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>{upcoming.map(renderRow)}</div>
-          )}
-        </div>
+      {dataLoading ? (
+        <p className={s.muted}>Loading…</p>
+      ) : (
+        <div className={aurora.sidebarLayout}>
+          <aside className={`${aurora.glass} ${aurora.sideCard}`}>
+            <span className={aurora.sideLabel}>Show</span>
+            {filters.map((f) => (
+              <button
+                key={f.value}
+                type="button"
+                onClick={() => setFilter(f.value)}
+                className={`${aurora.fi} ${filter === f.value ? aurora.fiOn : ""}`}
+              >
+                {f.label}
+                <span className={aurora.n}>{f.count}</span>
+              </button>
+            ))}
+          </aside>
 
-        <div style={cardStyle}>
-          <span
-            style={{
-              display: "block",
-              fontSize: "11px",
-              fontWeight: 800,
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              color: "#94a3b8",
-              marginBottom: "14px",
-              borderLeft: "3px solid #94a3b8",
-              paddingLeft: "10px",
-            }}
-          >
-            Past
-          </span>
-          {dataLoading ? (
-            <p style={{ fontSize: "12px", color: "#94a3b8", margin: 0 }}>Loading…</p>
-          ) : past.length === 0 ? (
-            <p style={{ fontSize: "12px", color: "#94a3b8", margin: 0 }}>No past interviews.</p>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>{past.map(renderRow)}</div>
-          )}
+          <div className={`${aurora.glass} ${aurora.tableCard}`}>
+            <div className={aurora.tableScroll}>
+              <div className={aurora.th} style={{ gridTemplateColumns: COLS }}>
+                <span>Interview</span>
+                <span>Date &amp; Time</span>
+                <span>Interviewer</span>
+                <span>Duration</span>
+                <span>Status</span>
+                <span />
+              </div>
+              {shown.length === 0 ? (
+                <p className={s.muted} style={{ padding: "24px 28px", fontSize: 13 }}>
+                  {filter === "past" ? "No past interviews." : "Nothing scheduled yet."}
+                </p>
+              ) : (
+                shown.map((interview) => (
+                  <div key={interview.id} className={aurora.tr} style={{ gridTemplateColumns: COLS }}>
+                    <span className={`${s.strong} ${s.cap}`}>{interview.interview_type} interview</span>
+                    <span className={s.cell}>{formatWhen(interview.scheduled_at)}</span>
+                    <span className={s.cell}>{interview.interviewer_name}</span>
+                    <span className={s.cell}>{interview.duration_minutes}m</span>
+                    <span>
+                      <StatusChip status={interview.status} />
+                    </span>
+                    <span>
+                      {interview.interview_type === "video" && interview.status === "scheduled" && (
+                        <Link href={`/call/${interview.id}`} target="_blank" className={`${aurora.btn} ${aurora.btnAccent} ${aurora.btnSm}`}>
+                          Join Call
+                        </Link>
+                      )}
+                      {interview.interview_type === "bot" && interview.status === "scheduled" && (
+                        <Link href={`/bot-interview/${interview.id}`} target="_blank" className={`${aurora.btn} ${aurora.btnAccent} ${aurora.btnSm}`}>
+                          Join the interview
+                        </Link>
+                      )}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className={aurora.tableFoot}>
+              {shown.length} of {sorted.length} interviews
+            </div>
+          </div>
         </div>
-      </div>
-    </DashboardShell>
+      )}
+    </>
   );
 }

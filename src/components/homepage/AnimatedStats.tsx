@@ -1,39 +1,19 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { CountUp } from "@/components/aurora/CountUp";
+import aurora from "@/components/aurora/aurora.module.css";
 import { getPublicStats } from "@/lib/publicStats";
 import styles from "./AnimatedStats.module.css";
 
-const COUNT_UP_MS = 1400;
+const CARD_TONES = ["cardAccent", "cardViolet", "cardGlass", "cardGlass"] as const;
 
-function useCountUp(target: number, active: boolean): number {
-  const [value, setValue] = useState(0);
-  const startedRef = useRef(false);
-
-  useEffect(() => {
-    if (!active || startedRef.current || target <= 0) return;
-    startedRef.current = true;
-    const start = performance.now();
-    let frame: number;
-    function tick(now: number) {
-      const progress = Math.min((now - start) / COUNT_UP_MS, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setValue(Math.round(eased * target));
-      if (progress < 1) frame = requestAnimationFrame(tick);
-    }
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, [active, target]);
-
-  return value;
-}
-
-function StatCard({ label, target, active, suffix = "" }: { label: string; target: number; active: boolean; suffix?: string }) {
-  const value = useCountUp(target, active);
+function StatCard({ label, target, active, suffix = "", tone }: { label: string; target: number; active: boolean; suffix?: string; tone: number }) {
+  const toneClass = styles[CARD_TONES[tone % CARD_TONES.length]];
   return (
-    <div className={styles.card}>
+    <div className={`${aurora.glass} ${aurora.lift} ${styles.card} ${toneClass}`}>
       <div className={styles.value}>
-        {value.toLocaleString()}
+        {active ? <CountUp value={target} /> : 0}
         {suffix}
       </div>
       <div className={styles.label}>{label}</div>
@@ -77,10 +57,10 @@ export function AnimatedStats() {
 
   return (
     <div ref={ref} className={styles.strip}>
-      <StatCard label="Organizations hiring on Nextenti" target={stats.organizations_count} active={active} />
-      <StatCard label="Candidates in the pipeline" target={stats.candidates_count} active={active} suffix="+" />
-      <StatCard label="AI interviews completed" target={stats.interviews_completed_count} active={active} />
-      <StatCard label="Jobs posted" target={stats.jobs_posted_count} active={active} />
+      <StatCard tone={0} label="Organizations hiring on Krafziel" target={stats.organizations_count} active={active} />
+      <StatCard tone={1} label="Candidates in the pipeline" target={stats.candidates_count} active={active} suffix="+" />
+      <StatCard tone={2} label="AI interviews completed" target={stats.interviews_completed_count} active={active} />
+      <StatCard tone={3} label="Jobs posted" target={stats.jobs_posted_count} active={active} />
     </div>
   );
 }

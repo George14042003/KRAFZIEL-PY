@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { ResetPasswordForm } from "./ResetPasswordForm";
 
 export const metadata: Metadata = {
-  title: "Reset Password | Nextenti Talent Flow",
+  title: "Reset Password | Krafziel",
 };
 
 export default function ResetPasswordPage() {

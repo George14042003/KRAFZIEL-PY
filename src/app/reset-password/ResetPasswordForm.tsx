@@ -2,20 +2,11 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, type CSSProperties, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { AuthShell } from "@/components/auth/AuthShell";
+import s from "@/components/auth/AuthShell.module.css";
+import aurora from "@/components/aurora/aurora.module.css";
 import { resetPassword } from "@/lib/auth";
-
-const inputStyle: CSSProperties = {
-  width: "100%",
-  padding: "11px 14px",
-  background: "#f8fafc",
-  border: "1px solid #e2e8f0",
-  borderRadius: "12px",
-  fontSize: "13px",
-  color: "#0f172a",
-  boxSizing: "border-box",
-};
 
 const FEATURES = [
   "Track every application and interview in one pipeline",
@@ -64,109 +55,70 @@ export function ResetPasswordForm() {
 
   return (
     <AuthShell headline="Set a new password" subhead="Choose a strong password for your account." features={FEATURES}>
-      <div
-        style={{
-          background: "#fff",
-          borderRadius: "28px",
-          padding: "36px",
-          boxShadow: "0 25px 60px rgba(0,0,0,.35)",
-          display: "flex",
-          flexDirection: "column",
-          gap: "20px",
-        }}
-      >
-        <div style={{ textAlign: "left" }}>
-          <h2 style={{ fontSize: "22px", fontWeight: 800, color: "#0f172a", margin: "0 0 4px", letterSpacing: "-0.01em" }}>
-            Reset your password
-          </h2>
-        </div>
-
-        {submitted ? (
-          <>
-            <p style={{ fontSize: "13px", color: "#334155", margin: 0, lineHeight: 1.6 }}>
-              Your password has been updated. You can now sign in.
-            </p>
-            <button
-              type="button"
-              onClick={() => router.push("/login")}
-              style={{
-                padding: "12px",
-                background: "#01617a",
-                color: "#fff",
-                border: "none",
-                borderRadius: "12px",
-                fontWeight: 700,
-                fontSize: "13px",
-                cursor: "pointer",
-              }}
-            >
-              Go to sign in
-            </button>
-          </>
-        ) : (
-          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-            <div>
-              <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: "#334155", marginBottom: "6px" }}>
-                New Password
-              </label>
-              <input
-                type="password"
-                required
-                minLength={8}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="At least 8 characters"
-                style={inputStyle}
-              />
-            </div>
-
-            <div>
-              <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: "#334155", marginBottom: "6px" }}>
-                Confirm New Password
-              </label>
-              <input
-                type="password"
-                required
-                minLength={8}
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="••••••••"
-                style={inputStyle}
-              />
-            </div>
-
-            {error && (
-              <p style={{ fontSize: "12px", color: "#dc2626", margin: 0 }} role="alert">
-                {error}
-              </p>
-            )}
-
-            <button
-              type="submit"
-              disabled={submitting}
-              style={{
-                padding: "12px",
-                background: "#01617a",
-                color: "#fff",
-                border: "none",
-                borderRadius: "12px",
-                fontWeight: 700,
-                fontSize: "13px",
-                cursor: submitting ? "default" : "pointer",
-                opacity: submitting ? 0.7 : 1,
-              }}
-            >
-              {submitting ? "Updating…" : "Update Password"}
-            </button>
-          </form>
-        )}
-
-        <p style={{ textAlign: "center", fontSize: "12px", color: "#64748b", margin: 0 }}>
-          <Link href="/login" style={{ fontWeight: 700, textDecoration: "none", color: "#01617a" }}>
-            Back to sign in
-          </Link>
-        </p>
+      <div>
+        <h2 className={s.title} style={{ margin: 0 }}>
+          Reset your password
+        </h2>
       </div>
+
+      {submitted ? (
+        <>
+          <p className={s.ok}>Your password has been updated. You can now sign in.</p>
+          <button type="button" onClick={() => router.push("/login")} className={`${aurora.btn} ${aurora.btnAccent} ${s.full}`}>
+            Go to sign in
+          </button>
+        </>
+      ) : (
+        <form suppressHydrationWarning onSubmit={handleSubmit} className={s.form}>
+          <div className={aurora.field}>
+            <label className={aurora.lbl} htmlFor="rp-pass">
+              New Password
+            </label>
+            <input suppressHydrationWarning
+              id="rp-pass"
+              className={aurora.inp}
+              type="password"
+              required
+              minLength={8}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="At least 8 characters"
+            />
+          </div>
+
+          <div className={aurora.field}>
+            <label className={aurora.lbl} htmlFor="rp-confirm">
+              Confirm New Password
+            </label>
+            <input suppressHydrationWarning
+              id="rp-confirm"
+              className={aurora.inp}
+              type="password"
+              required
+              minLength={8}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="••••••••"
+            />
+          </div>
+
+          {error && (
+            <p className={s.err} role="alert">
+              {error}
+            </p>
+          )}
+
+          <button type="submit" disabled={submitting} className={`${aurora.btn} ${aurora.btnAccent} ${s.full}`}>
+            {submitting ? "Updating…" : "Update Password"}
+          </button>
+        </form>
+      )}
+
+      <p className={s.foot}>
+        <Link href="/login" className={s.link}>
+          Back to sign in
+        </Link>
+      </p>
     </AuthShell>
   );
 }

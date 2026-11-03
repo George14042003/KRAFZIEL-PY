@@ -29,6 +29,12 @@
 
 html {
   height: 100%;
+  /* canvas colour under everything, so a route change can never show a white frame */
+  background: #0a0b12;
+}
+
+html[data-theme="light"] {
+  background: #f3efe6;
 }
 
 html {

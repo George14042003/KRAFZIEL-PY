@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
-import { StatusBadge } from "@/components/dashboard/StatusBadge";
+import { AuroraPageHeader } from "@/components/aurora/AuroraPageHeader";
+import styles from "@/components/aurora/aurora.module.css";
+import { AuroraLoading, JobStatusChip } from "./JobStatusChip";
 import { useSession } from "@/hooks/useSession";
 import { listJobs, type Job, type JobStatus } from "@/lib/jobs";
 
@@ -58,201 +60,124 @@ export function JobsListClient() {
   }, [jobs, search, statusFilter]);
 
   if (loading || !user) {
-    return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-secondary)", fontSize: "14px" }}>
-        Loading…
-      </div>
-    );
+    return <AuroraLoading />;
   }
+
+  const cols = "2fr 1fr 1fr 1fr .8fr .9fr";
 
   return (
     <DashboardShell user={user}>
-      <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: "16px", flexWrap: "wrap" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-            <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--text-primary)", margin: 0, letterSpacing: "-0.01em" }}>Jobs</h1>
-            <p style={{ fontSize: "13px", color: "var(--text-secondary)", margin: 0 }}>
-              {jobs.length} requisitions posted by your team
-            </p>
-          </div>
-          <Link
-            href="/employer/jobs/new"
-            style={{
-              padding: "9px 16px",
-              background: "#01617a",
-              color: "#fff",
-              borderRadius: "10px",
-              fontWeight: 700,
-              fontSize: "13px",
-              textDecoration: "none",
-              whiteSpace: "nowrap",
-            }}
-          >
-            + Post Job
+      <AuroraPageHeader
+        eyebrow="Hiring"
+        title="Jobs"
+        subtitle={`${jobs.length} requisitions posted by your team`}
+        actions={
+          <Link href="/employer/jobs/new" className={`${styles.btn} ${styles.btnAccent}`}>
+            + New Job
+          </Link>
+        }
+      />
+
+      {error && (
+        <p style={{ fontSize: "13px", color: "#C4123A", margin: 0 }} role="alert">
+          {error}
+        </p>
+      )}
+
+      {dataLoading ? (
+        <div style={{ color: "var(--text-3)", fontSize: "13px" }}>Loading jobs…</div>
+      ) : jobs.length === 0 ? (
+        <div
+          className={`${styles.glass} ${styles.card}`}
+          style={{ padding: "56px 24px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}
+        >
+          <span className={styles.display} style={{ fontSize: 20, fontWeight: 600 }}>No jobs posted yet</span>
+          <p style={{ fontSize: 14, color: "var(--text-3)", margin: 0, maxWidth: 380 }}>
+            Post a requisition so candidates can browse and apply from their dashboard.
+          </p>
+          <Link href="/employer/jobs/new" className={`${styles.btn} ${styles.btnAccent}`} style={{ marginTop: 10 }}>
+            + New Job
           </Link>
         </div>
-
-        {error && (
-          <p style={{ fontSize: "13px", color: "#fecaca", margin: 0 }} role="alert">
-            {error}
-          </p>
-        )}
-
-        {dataLoading ? (
-          <div style={{ color: "var(--text-tertiary)", fontSize: "13px" }}>Loading jobs…</div>
-        ) : jobs.length === 0 ? (
-          <div
-            style={{
-              background: "#fff",
-              border: "1px solid #e2e8f0",
-              borderRadius: "16px",
-              padding: "48px 24px",
-              textAlign: "center",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: "8px",
-            }}
-          >
-            <span style={{ fontSize: "15px", fontWeight: 700, color: "#0f172a" }}>No jobs posted yet</span>
-            <p style={{ fontSize: "13px", color: "#64748b", margin: 0, maxWidth: "360px" }}>
-              Post a requisition so candidates can browse and apply from their dashboard.
-            </p>
-            <Link
-              href="/employer/jobs/new"
-              style={{ marginTop: "8px", padding: "10px 18px", background: "#01617a", color: "#fff", borderRadius: "10px", fontWeight: 700, fontSize: "13px", textDecoration: "none" }}
-            >
-              + Post Job
-            </Link>
-          </div>
-        ) : (
-          <div style={{ display: "flex", gap: "16px" }}>
-            <aside
-              style={{
-                width: "200px",
-                flexShrink: 0,
-                background: "#fff",
-                border: "1px solid #e2e8f0",
-                borderRadius: "16px",
-                padding: "16px",
-                display: "flex",
-                flexDirection: "column",
-                gap: "12px",
-                alignSelf: "flex-start",
-              }}
-            >
-              <span style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.08em", color: "#94a3b8" }}>STATUS</span>
-              <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                {STATUS_FILTERS.map((s) => (
-                  <button
-                    key={s.value}
-                    type="button"
-                    onClick={() => setStatusFilter(s.value)}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      padding: "8px 10px",
-                      borderRadius: "8px",
-                      border: "none",
-                      background: statusFilter === s.value ? "#e0f2fe" : "transparent",
-                      color: statusFilter === s.value ? "#01617a" : "#334155",
-                      fontWeight: statusFilter === s.value ? 700 : 500,
-                      fontSize: "13px",
-                      cursor: "pointer",
-                      textAlign: "left",
-                    }}
-                  >
-                    {s.label}
-                    <span
-                      style={{
-                        fontSize: "11px",
-                        fontWeight: 700,
-                        background: statusFilter === s.value ? "#bae6fd" : "#f1f5f9",
-                        color: statusFilter === s.value ? "#014a5e" : "#64748b",
-                        borderRadius: "999px",
-                        padding: "1px 8px",
-                      }}
-                    >
-                      {s.value === "all" ? jobs.length : statusCounts.get(s.value) ?? 0}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </aside>
-
-            <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: "12px" }}>
-              <div
-                style={{
-                  background: "#fff",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: "16px",
-                  padding: "14px 18px",
-                }}
+      ) : (
+        <div className={styles.sidebarLayout}>
+          <aside className={`${styles.glass} ${styles.sideCard}`}>
+            <span className={styles.sideLabel}>Status</span>
+            {STATUS_FILTERS.map((s) => (
+              <button
+                key={s.value}
+                type="button"
+                onClick={() => setStatusFilter(s.value)}
+                className={`${styles.fi} ${statusFilter === s.value ? styles.fiOn : ""}`}
               >
+                {s.label}
+                <span className={styles.n}>{s.value === "all" ? jobs.length : statusCounts.get(s.value) ?? 0}</span>
+              </button>
+            ))}
+          </aside>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
+            <div
+              className={styles.glass}
+              style={{ borderRadius: 28, padding: "20px 24px", display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 16 }}
+            >
+              <div className={styles.field} style={{ flex: "1 1 300px" }}>
+                <label className={styles.lbl} htmlFor="job-search">Search</label>
                 <input
+                  id="job-search"
+                  className={styles.inp}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search by title, department, location…"
-                  style={{ width: "100%", padding: "9px 12px", border: "1px solid #e2e8f0", borderRadius: "8px", fontSize: "13px", color: "#0f172a", outline: "none" }}
+                  placeholder="Title, department, location…"
                 />
               </div>
+              <span style={{ fontSize: 13, color: "var(--text-3)", minHeight: 48, display: "flex", alignItems: "center" }}>
+                {filteredJobs.length} shown
+              </span>
+            </div>
 
-              <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: "16px", overflow: "hidden" }}>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "2fr 1fr 1fr 1fr 0.8fr 0.8fr",
-                    gap: "8px",
-                    padding: "12px 18px",
-                    borderBottom: "1px solid #e2e8f0",
-                    fontSize: "10px",
-                    fontWeight: 800,
-                    letterSpacing: "0.06em",
-                    color: "#94a3b8",
-                  }}
-                >
-                  <span>TITLE</span>
-                  <span>DEPARTMENT</span>
-                  <span>LOCATION</span>
-                  <span>TYPE</span>
-                  <span>APPLICANTS</span>
-                  <span>STATUS</span>
+            <div className={`${styles.glass} ${styles.tableCard}`}>
+              <div className={styles.tableScroll}>
+                <div className={styles.th} style={{ gridTemplateColumns: cols }}>
+                  <span>Title</span>
+                  <span>Department</span>
+                  <span>Location</span>
+                  <span>Type</span>
+                  <span>Applicants</span>
+                  <span>Status</span>
                 </div>
 
                 {filteredJobs.length === 0 ? (
-                  <p style={{ fontSize: "13px", color: "#94a3b8", padding: "24px 18px" }}>No jobs match these filters.</p>
+                  <p style={{ fontSize: 14, color: "var(--text-4)", padding: "24px 28px", margin: 0, borderTop: "1px solid var(--line-soft)" }}>
+                    No jobs match these filters.
+                  </p>
                 ) : (
                   filteredJobs.map((job) => (
                     <Link
                       key={job.id}
                       href={`/employer/jobs/${job.id}`}
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "2fr 1fr 1fr 1fr 0.8fr 0.8fr",
-                        alignItems: "center",
-                        gap: "8px",
-                        padding: "12px 18px",
-                        borderBottom: "1px solid #f1f5f9",
-                        textDecoration: "none",
-                      }}
+                      className={styles.tr}
+                      style={{ gridTemplateColumns: cols, color: "var(--text-2)", fontSize: 13 }}
                     >
-                      <span style={{ fontSize: "13px", fontWeight: 700, color: "#0f172a" }}>{job.title}</span>
-                      <span style={{ fontSize: "12px", color: "#334155" }}>{job.department || "—"}</span>
-                      <span style={{ fontSize: "12px", color: "#334155" }}>{job.location || "—"}</span>
-                      <span style={{ fontSize: "12px", color: "#334155" }}>{employmentLabel(job.employment_type)}</span>
-                      <span style={{ fontSize: "12px", color: "#334155" }}>{job.application_count}</span>
+                      <span className={styles.display} style={{ fontWeight: 600, fontSize: 15, color: "var(--text)" }}>{job.title}</span>
+                      <span>{job.department || "—"}</span>
+                      <span>{job.location || "—"}</span>
+                      <span>{employmentLabel(job.employment_type)}</span>
+                      <span className={styles.display} style={{ fontWeight: 700, color: "var(--text)" }}>{job.application_count}</span>
                       <span>
-                        <StatusBadge status={job.status} />
+                        <JobStatusChip status={job.status} />
                       </span>
                     </Link>
                   ))
                 )}
               </div>
+              <div className={styles.tableFoot}>
+                {filteredJobs.length} of {jobs.length} jobs
+              </div>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </DashboardShell>
   );
 }

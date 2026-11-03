@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { CandidatePoolClient } from "./CandidatePoolClient";
 
 export const metadata: Metadata = {
-  title: "Candidate Pool | Nextenti Talent Flow",
+  title: "Candidate Pool | Krafziel",
 };
 
 export default function CandidatePoolPage() {

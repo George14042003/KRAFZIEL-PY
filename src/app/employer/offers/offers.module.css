@@ -1,0 +1,116 @@
+.col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.cand {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text);
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cand:hover {
+  text-decoration: underline;
+}
+.cell {
+  font-size: 13px;
+  color: var(--text-2);
+  min-width: 0;
+}
+.salary {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+.selectWrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+}
+.selectWrap select {
+  padding-right: 32px;
+}
+.chev {
+  position: absolute;
+  right: 12px;
+  pointer-events: none;
+  color: var(--text-3);
+}
+.empty {
+  padding: 24px 28px;
+  font-size: 13px;
+  color: var(--text-4);
+  margin: 0;
+}
+.emptyCard {
+  border-radius: 18px;
+  padding: 48px 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.emptyTitle {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+}
+.emptyText {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-3);
+  max-width: 360px;
+}
+.error {
+  margin: 0;
+  font-size: 13px;
+  color: #c4123a;
+}
+.formCard {
+  border-radius: 18px;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.grid3 {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 16px;
+}
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+.loading {
+  color: var(--text-3);
+  font-size: 14px;
+}
+.fullLoading {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+@media (max-width: 900px) {
+  .grid3,
+  .grid2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

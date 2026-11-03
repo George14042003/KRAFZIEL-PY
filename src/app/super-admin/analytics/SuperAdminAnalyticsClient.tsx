@@ -1,56 +1,96 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { SuperAdminShell } from "@/components/superadmin/SuperAdminShell";
-import { getAdminPalette } from "@/components/superadmin/adminStyles";
-import { useTheme } from "@/contexts/ThemeContext";
+import { AuroraLoading } from "@/components/aurora/AuroraLoading";
+import { AuroraPageHeader } from "@/components/aurora/AuroraPageHeader";
+import { CountUp } from "@/components/aurora/CountUp";
+import styles from "@/components/aurora/aurora.module.css";
 import { useSession } from "@/hooks/useSession";
 import { listOrganizations, type Organization } from "@/lib/superAdmin";
+import local from "../superAdmin.module.css";
 
 function KpiCard({
   label,
   value,
   sub,
-  palette,
+  accent,
+  violet,
 }: {
   label: string;
-  value: string | number;
+  value: number;
   sub?: string;
-  palette: ReturnType<typeof getAdminPalette>;
+  accent?: boolean;
+  violet?: boolean;
 }) {
+  const solid = accent || violet;
   return (
-    <div style={palette.card}>
-      <div style={{ fontSize: "10.5px", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: palette.textMuted }}>
+    <div
+      className={`${solid ? "" : styles.glass} ${styles.lift}`}
+      style={{
+        borderRadius: "28px",
+        padding: "24px",
+        boxSizing: "border-box",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        gap: "14px",
+        minWidth: 0,
+        background: accent ? "var(--accent)" : violet ? "#0066ff" : undefined,
+        color: accent ? "var(--on-accent)" : violet ? "#fff" : undefined,
+      }}
+    >
+      <div
+        style={{
+          fontSize: "11px",
+          fontWeight: 600,
+          textTransform: "uppercase",
+          letterSpacing: "0.12em",
+          opacity: solid ? 0.75 : 1,
+          color: solid ? undefined : "var(--text-4)",
+        }}
+      >
         {label}
       </div>
-      <div style={{ fontSize: "26px", fontWeight: 800, color: palette.textPrimary, margin: "6px 0 2px" }}>{value}</div>
-      {sub && <div style={{ fontSize: "11.5px", color: palette.textMuted }}>{sub}</div>}
+      <div className={styles.display} style={{ fontWeight: 800, fontSize: "56px", lineHeight: 1, letterSpacing: "-0.04em", color: solid ? undefined : "var(--text)" }}>
+        <CountUp value={value} />
+      </div>
+      {sub && <div style={{ fontSize: "13px", color: solid ? undefined : "var(--text-3)", opacity: solid ? 0.85 : 1 }}>{sub}</div>}
     </div>
   );
 }
 
-function BarRow({
-  label,
-  value,
-  max,
-  color,
-  palette,
-}: {
-  label: string;
-  value: number;
-  max: number;
-  color: string;
-  palette: ReturnType<typeof getAdminPalette>;
-}) {
+function BarRow({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
   const pct = max === 0 ? 0 : Math.round((value / max) * 100);
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: palette.textPrimary }}>
-        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "220px" }}>{label}</span>
-        <span style={{ fontWeight: 700, color: palette.textMuted }}>{value}</span>
+    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontSize: "14px", gap: "12px" }}>
+        <span style={{ fontWeight: 500, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
+          {label}
+        </span>
+        <b className={styles.display} style={{ fontSize: "17px", color: "var(--text)" }}>
+          {value}
+        </b>
       </div>
-      <div style={{ height: "7px", borderRadius: "999px", background: palette.dark ? "#0f172a" : "#e2e8f0", overflow: "hidden" }}>
-        <div style={{ height: "100%", width: `${Math.max(pct, value > 0 ? 3 : 0)}%`, background: color, borderRadius: "999px" }} />
+      <div className={styles.bar}>
+        <i style={{ width: `${Math.max(pct, value > 0 ? 3 : 0)}%`, background: color }} />
+      </div>
+    </div>
+  );
+}
+
+function RankCard({ title, rows, color }: { title: string; rows: { id: string; name: string; value: number }[]; color: string }) {
+  const max = Math.max(1, ...rows.map((r) => r.value));
+  return (
+    <div className={`${styles.glass} ${styles.card}`} style={{ display: "flex", flexDirection: "column", gap: "22px" }}>
+      <h2 className={styles.display} style={{ fontWeight: 600, fontSize: "18px", margin: 0, color: "var(--text)" }}>
+        {title}
+      </h2>
+      <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
+        {rows.length === 0 ? (
+          <p style={{ fontSize: "13px", color: "var(--text-3)", margin: 0 }}>No data yet.</p>
+        ) : (
+          rows.map((r, i) => <BarRow key={r.id} label={r.name} value={r.value} max={max} color={i === 0 ? "var(--accent)" : color} />)
+        )}
       </div>
     </div>
   );
@@ -58,8 +98,6 @@ function BarRow({
 
 export function SuperAdminAnalyticsClient() {
   const { user, loading } = useSession("super_admin");
-  const { theme } = useTheme();
-  const palette = getAdminPalette(theme);
   const [orgs, setOrgs] = useState<Organization[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -85,78 +123,46 @@ export function SuperAdminAnalyticsClient() {
 
   const byCandidates = useMemo(() => [...orgs].sort((a, b) => b.candidate_count - a.candidate_count).slice(0, 8), [orgs]);
   const byEmployers = useMemo(() => [...orgs].sort((a, b) => b.employer_count - a.employer_count).slice(0, 8), [orgs]);
-  const maxCandidates = Math.max(1, ...byCandidates.map((o) => o.candidate_count));
-  const maxEmployers = Math.max(1, ...byEmployers.map((o) => o.employer_count));
 
   const avgCandidatesPerOrg = orgs.length === 0 ? 0 : Math.round((totals.candidates / orgs.length) * 10) / 10;
 
-  if (loading || !user) {
-    return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: palette.textMuted, fontSize: "14px", background: palette.bg }}>
-        Loading…
-      </div>
-    );
-  }
+  if (loading || !user) return <AuroraLoading />;
 
   return (
-    <SuperAdminShell user={user}>
-      <div style={{ marginBottom: "24px" }}>
-        <h1 style={{ fontSize: "20px", fontWeight: 800, color: palette.textPrimary, margin: 0 }}>Analytics</h1>
-        <p style={{ fontSize: "12.5px", color: palette.textMuted, margin: "4px 0 0" }}>
-          Cross-organization usage at a glance.
-        </p>
-      </div>
+    <>
+      <AuroraPageHeader eyebrow="Platform" title="Analytics" subtitle="Cross-organization usage at a glance." />
 
       {error && (
-        <p style={{ fontSize: "13px", color: palette.negative, margin: "0 0 16px" }} role="alert">
+        <p style={{ fontSize: "13px", color: "#FB7185", margin: 0 }} role="alert">
           {error}
         </p>
       )}
 
       {dataLoading ? (
-        <p style={{ fontSize: "12px", color: palette.textMuted }}>Loading…</p>
+        <AuroraLoading label="Crunching the numbers…" />
       ) : (
         <>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "14px", marginBottom: "24px" }}>
-            <KpiCard label="Total Organizations" value={orgs.length} sub={`${totals.active} active · ${totals.suspended} suspended`} palette={palette} />
-            <KpiCard label="Total Employers" value={totals.employers} palette={palette} />
-            <KpiCard label="Total Candidates" value={totals.candidates} sub={`~${avgCandidatesPerOrg} per org`} palette={palette} />
-            <KpiCard label="Total Jobs Posted" value={totals.jobs} palette={palette} />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px" }}>
+            <KpiCard accent label="Total Organizations" value={orgs.length} sub={`${totals.active} active · ${totals.suspended} suspended`} />
+            <KpiCard violet label="Total Candidates" value={totals.candidates} sub={`~${avgCandidatesPerOrg} per org`} />
+            <KpiCard label="Total Employers" value={totals.employers} sub="Employer logins" />
+            <KpiCard label="Total Jobs Posted" value={totals.jobs} sub="Across all organizations" />
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "16px" }}>
-            <div style={{ ...palette.card, display: "flex", flexDirection: "column", gap: "14px" }}>
-              <h2 style={{ fontSize: "13px", fontWeight: 800, color: palette.textPrimary, margin: 0, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                Top Organizations by Candidates
-              </h2>
-              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                {byCandidates.length === 0 ? (
-                  <p style={{ fontSize: "12px", color: palette.textMuted, margin: 0 }}>No data yet.</p>
-                ) : (
-                  byCandidates.map((o) => (
-                    <BarRow key={o.id} label={o.name} value={o.candidate_count} max={maxCandidates} color={palette.accent} palette={palette} />
-                  ))
-                )}
-              </div>
-            </div>
-
-            <div style={{ ...palette.card, display: "flex", flexDirection: "column", gap: "14px" }}>
-              <h2 style={{ fontSize: "13px", fontWeight: 800, color: palette.textPrimary, margin: 0, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                Top Organizations by Employers
-              </h2>
-              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                {byEmployers.length === 0 ? (
-                  <p style={{ fontSize: "12px", color: palette.textMuted, margin: 0 }}>No data yet.</p>
-                ) : (
-                  byEmployers.map((o) => (
-                    <BarRow key={o.id} label={o.name} value={o.employer_count} max={maxEmployers} color="#0891b2" palette={palette} />
-                  ))
-                )}
-              </div>
-            </div>
+          <div className={local.cols2}>
+            <RankCard
+              title="Top Organizations by Candidates"
+              color="#C9CDE0"
+              rows={byCandidates.map((o) => ({ id: o.id, name: o.name, value: o.candidate_count }))}
+            />
+            <RankCard
+              title="Top Organizations by Employers"
+              color="#C9CDE0"
+              rows={byEmployers.map((o) => ({ id: o.id, name: o.name, value: o.employer_count }))}
+            />
           </div>
         </>
       )}
-    </SuperAdminShell>
+    </>
   );
 }

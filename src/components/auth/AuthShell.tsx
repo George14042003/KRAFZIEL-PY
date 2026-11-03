@@ -1,104 +1,142 @@
-import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
-import { Logo } from "@/components/Logo";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { LoopingVideo } from "@/components/LoopingVideo";
+import { BrandLogo } from "@/components/BrandLogo";
+import Link from "next/link";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { AuroraCanvas } from "@/components/aurora/AuroraCanvas";
+import aurora from "@/components/aurora/aurora.module.css";
 import styles from "./AuthShell.module.css";
-import { CheckIcon } from "./icons";
+import { BriefcaseIcon, CheckIcon, UserIcon } from "./icons";
+
+export type AuthRole = "candidate" | "employer";
 
 type AuthShellProps = {
   headline: string;
   subhead: string;
   features: string[];
   children: ReactNode;
-  /** Swap sides — video/hero panel on the right, form card on the left. */
-  mirrored?: boolean;
+  /** Centre the card contents (confirmation / status screens). */
+  centered?: boolean;
+  /** Small legal line under the card. */
+  footnote?: ReactNode;
+  /** Role tint of the hero panel; changing it cross-fades the background glow. */
+  tone?: AuthRole;
 };
 
-const SWAP_FADE_MS = 220;
+type HeroCopy = { headline: string; subhead: string; features: string[] };
+const HERO_OUT_MS = 170;
 
-export function AuthShell({ headline, subhead, features, children, mirrored = false }: AuthShellProps) {
-  // The actual side-swap (via flex `order`) can't be CSS-transitioned by
-  // itself — it's an instant flip. So the swap only happens while opacity is
-  // briefly dipped to 0, and the fade back in masks it as one smooth motion
-  // instead of a jarring switch.
-  const [appliedMirrored, setAppliedMirrored] = useState(mirrored);
-  const [fading, setFading] = useState(false);
+/** Krafziel logo on a white plate; its size comes from AuthShell.module.css so it scales with the viewport. */
+function BrandLogoMark() {
+  return <BrandLogo />;
+}
 
+const delay = (s: number) => ({ ["--d" as string]: `${s}s` }) as CSSProperties;
+
+export function AuthShell({ headline, subhead, features, children, centered = false, footnote, tone = "candidate" }: AuthShellProps) {
+  // The old copy fades out first, then the new copy is mounted and rises in; the first paint keeps the page-load reveal.
+  const [shown, setShown] = useState<HeroCopy>({ headline, subhead, features });
+  const [swaps, setSwaps] = useState(0);
+  const leaving = shown.headline !== headline || shown.subhead !== subhead || shown.features !== features;
   useEffect(() => {
-    if (mirrored === appliedMirrored) return;
-    setFading(true);
+    if (!leaving) return;
     const timer = setTimeout(() => {
-      setAppliedMirrored(mirrored);
-      setFading(false);
-    }, SWAP_FADE_MS);
+      setShown({ headline, subhead, features });
+      setSwaps((n) => n + 1);
+    }, HERO_OUT_MS);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mirrored]);
-
-  const panelStyle = (side: "hero" | "card"): React.CSSProperties => ({
-    order: appliedMirrored ? (side === "hero" ? 2 : 1) : undefined,
-    opacity: fading ? 0 : 1,
-    transform: fading ? "translateY(6px)" : "translateY(0)",
-    transition: `opacity ${SWAP_FADE_MS}ms ease, transform ${SWAP_FADE_MS}ms ease`,
-  });
+  }, [leaving, headline, subhead, features]);
+  const enter = swaps === 0 ? aurora.reveal : styles.rise;
 
   return (
-    <div className={styles.shell}>
-      <div className={styles.videoBg}>
-        <video
-          className={styles.video}
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="auto"
-        >
-          <source src="/videos/hero-bg.mp4" type="video/mp4" />
-        </video>
-        <div className={styles.videoOverlay} />
-      </div>
-      <div className={styles.themeToggleWrap}>
-        <ThemeToggle variant="ghost" iconColor="#fff" />
-      </div>
-      <div className={styles.content}>
-        <aside className={styles.hero} style={panelStyle("hero")}>
-          <div className={styles.heroBrand}>
-            <Logo size={44} radius={12} />
-            <span className={styles.heroBrandName}>Nextenti</span>
+    <AuroraCanvas className={aurora.maata}>
+      <div className={styles.stage}>
+        <Link href="/" className={styles.homeBtn} aria-label="Home page">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10" />
+          </svg>
+          <span className={styles.homeLabel}>Home page</span>
+        </Link>
+        <div className={styles.grid}>
+          <aside className={styles.hero}>
+            <div className={styles.heroVideoBg} aria-hidden="true">
+              <LoopingVideo src="/videos/hero-bg.mp4" className={styles.heroVideo} />
+            </div>
+            <div className={styles.heroTints} aria-hidden="true">
+              <span className={`${styles.tint} ${styles.tintCandidate} ${tone === "candidate" ? styles.tintOn : ""}`} />
+              <span className={`${styles.tint} ${styles.tintEmployer} ${tone === "employer" ? styles.tintOn : ""}`} />
+            </div>
+            <div className={`${styles.brandPill} ${aurora.reveal}`}>
+              <BrandLogoMark />
+            </div>
+            <div className={`${styles.heroCopy} ${leaving ? styles.heroOut : ""}`}>
+              <h1 key={`h${swaps}`} className={`${styles.headline} ${enter}`} style={delay(swaps === 0 ? 0.08 : 0.02)}>
+                {shown.headline}
+              </h1>
+              <p key={`p${swaps}`} className={`${styles.subhead} ${enter}`} style={delay(swaps === 0 ? 0.16 : 0.08)}>
+                {shown.subhead}
+              </p>
+              <ul className={styles.features}>
+                {shown.features.map((feature, i) => (
+                  <li key={`${swaps}-${i}`} className={`${styles.feature} ${enter}`} style={delay(swaps === 0 ? 0.24 + i * 0.08 : 0.14 + i * 0.07)}>
+                    <span className={styles.featureIcon}>
+                      <CheckIcon size={14} />
+                    </span>
+                    {feature}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <p className={styles.copyright}>&copy; {new Date().getFullYear()} Krafziel. All rights reserved.</p>
+          </aside>
+
+          <div className={styles.cardCol}>
+            <div className={`${styles.brandPill} ${styles.mobileBrand}`}>
+              <BrandLogoMark />
+            </div>
+            <div className={`${aurora.glass} ${styles.card} ${centered ? styles.cardCenter : ""} ${aurora.popIn}`}>{children}</div>
+            {footnote && <p className={styles.legal}>{footnote}</p>}
           </div>
-
-          <div>
-            <h1 className={styles.heroHeadline}>{headline}</h1>
-            <p className={styles.heroSubhead} style={{ marginTop: "12px" }}>
-              {subhead}
-            </p>
-          </div>
-
-          <ul className={styles.heroFeatures}>
-            {features.map((feature) => (
-              <li key={feature} className={styles.heroFeature}>
-                <span className={styles.heroFeatureIcon}>
-                  <CheckIcon size={12} />
-                </span>
-                {feature}
-              </li>
-            ))}
-          </ul>
-
-          <p className={styles.heroFooter}>
-            &copy; {new Date().getFullYear()} Nextenti. All rights reserved.
-          </p>
-        </aside>
-
-        <div className={styles.cardWrapper} style={panelStyle("card")}>
-          <div className={styles.mobileBrand}>
-            <Logo size={44} radius={12} />
-            <span className={styles.mobileBrandName}>Nextenti</span>
-          </div>
-
-          {children}
         </div>
       </div>
+    </AuroraCanvas>
+  );
+}
+
+/** Candidate / Employer segmented control with a sliding pill. */
+export function RoleTabs({ role, onChange }: { role: AuthRole; onChange: (r: AuthRole) => void }) {
+  const item = (r: AuthRole, label: string, icon: ReactNode) => (
+    <button
+      type="button"
+      className={`${styles.tab} ${role === r ? styles.tabActive : ""}`}
+      aria-pressed={role === r}
+      onClick={() => onChange(r)}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+  return (
+    <div className={styles.tabs} role="group" aria-label="Account type" data-role={role}>
+      <span className={styles.pill} aria-hidden="true" />
+      {item("candidate", "Candidate", <UserIcon size={14} />)}
+      {item("employer", "Employer", <BriefcaseIcon size={14} />)}
     </div>
+  );
+}
+
+/**
+ * Role-dependent text. Both variants share one grid cell, so the box is as tall as the longer one
+ * and never jumps; only the active one is visible and exposed to assistive tech.
+ */
+export function RoleSwap({ role, candidate, employer }: { role: AuthRole; candidate: ReactNode; employer: ReactNode }) {
+  return (
+    <span className={styles.swap}>
+      <span className={role === "candidate" ? styles.swapOn : styles.swapOff} aria-hidden={role !== "candidate"}>
+        {candidate}
+      </span>
+      <span className={role === "employer" ? styles.swapOn : styles.swapOff} aria-hidden={role !== "employer"}>
+        {employer}
+      </span>
+    </span>
   );
 }

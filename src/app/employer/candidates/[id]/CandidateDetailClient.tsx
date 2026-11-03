@@ -2,18 +2,15 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
-import { StatusBadge } from "@/components/dashboard/StatusBadge";
 import { CalendarPickerField } from "@/components/scheduling/CalendarPicker";
-import {
-  cardStyle,
-  inputStyle,
-  labelStyle,
-  primaryButtonStyle,
-  secondaryButtonStyle,
-} from "@/components/dashboard/formStyles";
+import styles from "@/components/aurora/aurora.module.css";
+import d from "./candidateDetail.module.css";
 import { useSession } from "@/hooks/useSession";
+import { useOpenEdition } from "@/lib/edition";
+import { ApplicationResumePanel, PortfolioBadge } from "@/components/applications/ApplicationResume";
+import { listAllApplications, type JobApplication } from "@/lib/jobs";
 import {
   createInterview,
   createOffer,
@@ -22,8 +19,11 @@ import {
   getCandidate,
   listInterviewsForCandidate,
   listOffersForCandidate,
+  RECOMMENDATION_LABELS,
+  recommendationOf,
   updateCandidate,
   updateInterview,
+  inviteCandidateToSignUp,
   updateOffer,
   type Candidate,
   type CandidateStatus,
@@ -53,13 +53,58 @@ const INTERVIEW_STATUSES: InterviewStatus[] = [
 const OFFER_STATUSES: OfferStatus[] = ["pending", "accepted", "declined", "withdrawn"];
 
 const INTERVIEW_TYPE_COLORS: Record<InterviewType, string> = {
-  phone: "#0d9488",
-  video: "#4338ca",
-  onsite: "#ea580c",
-  technical: "#7c3aed",
-  final: "#dc2626",
-  bot: "#0f172a",
+  phone: "#00B4FF",
+  video: "#0066FF",
+  onsite: "#5B6472",
+  technical: "#0F172A",
+  final: "#00E5FF",
+  bot: "#3B4147",
 };
+
+const STATUS_COLORS: Record<string, string> = {
+  pending: "#0080B8",
+  reviewed: "#0052CC",
+  interviewing: "#0F172A",
+  offered: "#3B4147",
+  hired: "#007C8A",
+  rejected: "#D7173E",
+  scheduled: "#0052CC",
+  completed: "#0B7A4B",
+  cancelled: "#6B7280",
+  rescheduled: "#0080B8",
+  no_show: "#D7173E",
+  accepted: "#007C8A",
+  declined: "#D7173E",
+  withdrawn: "#6B7280",
+};
+
+// Mirrors the Aurora .inp look for components that take an inline style (the calendar picker).
+const darkInputStyle: CSSProperties = {
+  boxSizing: "border-box",
+  width: "100%",
+  minHeight: "48px",
+  padding: "0 16px",
+  borderRadius: "16px",
+  border: "1px solid var(--line-strong)",
+  background: "var(--input-bg)",
+  color: "var(--text)",
+  font: "inherit",
+  fontSize: "14px",
+};
+
+function Chip({ status }: { status: string }) {
+  const color = STATUS_COLORS[status] ?? "#6B7280";
+  const label = status
+    .split("_")
+    .map((w) => w[0].toUpperCase() + w.slice(1))
+    .join(" ");
+  return (
+    <span className={styles.chip} style={{ color, background: `${color}29` }}>
+      <span className={styles.dot} style={{ background: color }} />
+      {label}
+    </span>
+  );
+}
 
 function initialsFor(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -82,16 +127,20 @@ function formatWhen(iso: string): string {
 export function CandidateDetailClient({ candidateId }: { candidateId: string }) {
   const router = useRouter();
   const { user, loading } = useSession("employer");
+  const openEdition = useOpenEdition();
 
   const [candidate, setCandidate] = useState<Candidate | null>(null);
   const [interviews, setInterviews] = useState<Interview[]>([]);
   const [offers, setOffers] = useState<Offer[]>([]);
+  const [applications, setApplications] = useState<JobApplication[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [dataLoading, setDataLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [showInterviewForm, setShowInterviewForm] = useState(false);
   const [showOfferForm, setShowOfferForm] = useState(false);
-  const [activeTab, setActiveTab] = useState<"overview" | "interviews" | "offers">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "applications" | "interviews" | "offers">("overview");
+  // Open source edition: video interviews only.
+  const shownInterviews = openEdition ? interviews.filter((i) => i.interview_type === "video") : interviews;
 
   useEffect(() => {
     if (!user) return;
@@ -107,6 +156,11 @@ export function CandidateDetailClient({ candidateId }: { candidateId: string }) 
       })
       .catch((err) => setLoadError(err instanceof Error ? err.message : "Could not load this candidate."))
       .finally(() => setDataLoading(false));
+    // Applications (with the resume each one carried) come from the organisation-wide list; a failure here
+    // should not hide the rest of the candidate.
+    listAllApplications()
+      .then((all) => setApplications(all.filter((a) => a.candidate.id === candidateId)))
+      .catch(() => {});
   }, [user, candidateId]);
 
   if (loading || !user) {
@@ -130,315 +184,273 @@ export function CandidateDetailClient({ candidateId }: { candidateId: string }) 
     router.push("/employer");
   }
 
+  const statusColor = candidate ? STATUS_COLORS[candidate.status] ?? "#6B7280" : "#6B7280";
+
   return (
     <DashboardShell user={user}>
-      <div style={{ maxWidth: "800px", margin: "0 auto" }}>
-        <Link href="/employer" style={{ fontSize: "12px", color: "var(--text-secondary)", textDecoration: "none" }}>
-          &larr; Back to dashboard
-        </Link>
+      <Link href="/employer" className={d.back}>
+        &larr; Back to dashboard
+      </Link>
 
-        {dataLoading && (
-          <div style={{ color: "var(--text-tertiary)", fontSize: "13px", marginTop: "16px" }}>Loading…</div>
-        )}
+      {dataLoading && <div style={{ color: "var(--text-3)", fontSize: "14px", padding: "0 8px" }}>Loading…</div>}
 
-        {loadError && (
-          <div style={{ ...cardStyle, marginTop: "16px" }}>
-            <p style={{ fontSize: "13px", color: "#dc2626", margin: 0 }} role="alert">
-              {loadError}
-            </p>
-          </div>
-        )}
+      {loadError && (
+        <div className={`${styles.glass} ${styles.cardSm}`}>
+          <p className={d.err} role="alert">
+            {loadError}
+          </p>
+        </div>
+      )}
 
-        {candidate && (
-          <div style={{ display: "flex", gap: "4px", marginTop: "20px", borderBottom: "1px solid #e2e8f0" }}>
-            {(
-              [
-                { key: "overview", label: "Overview" },
-                { key: "interviews", label: `Interviews (${interviews.length})` },
-                { key: "offers", label: `Offers (${offers.length})` },
-              ] as const
-            ).map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setActiveTab(tab.key)}
-                style={{
-                  padding: "10px 6px",
-                  marginRight: "22px",
-                  border: "none",
-                  borderBottom: activeTab === tab.key ? "2px solid #01617a" : "2px solid transparent",
-                  background: "transparent",
-                  fontWeight: 700,
-                  fontSize: "13px",
-                  cursor: "pointer",
-                  color: activeTab === tab.key ? "#01617a" : "#94a3b8",
-                  transition: "color 0.15s ease",
-                }}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {candidate && activeTab === "overview" && !editing && (
-          <div className="fade-in" style={{ marginTop: "16px", display: "flex", flexDirection: "column", gap: "16px" }}>
-            <div
-              style={{
-                background: "linear-gradient(135deg, #0891b2, #01617a)",
-                borderRadius: "18px",
-                padding: "26px 28px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: "16px",
-                flexWrap: "wrap",
-                boxShadow: "0 10px 30px rgba(1,97,122,0.22)",
-              }}
+      {candidate && (
+        <div className={`${styles.glass} ${d.tabs}`} role="tablist">
+          {(
+            [
+              { key: "overview", label: "Overview" },
+              { key: "applications", label: `Applications (${applications.length})` },
+              { key: "interviews", label: `Interviews (${shownInterviews.length})` },
+              { key: "offers", label: `Offers (${offers.length})` },
+            ] as const
+          )
+            .filter((tab) => !(openEdition && tab.key === "offers"))
+            .map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`${d.tab} ${activeTab === tab.key ? d.tabOn : ""}`}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-                <div
-                  style={{
-                    width: "56px",
-                    height: "56px",
-                    borderRadius: "16px",
-                    background: "rgba(255,255,255,0.16)",
-                    border: "1px solid rgba(255,255,255,0.3)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "18px",
-                    fontWeight: 800,
-                    color: "#fff",
-                    flexShrink: 0,
-                  }}
-                >
-                  {initialsFor(candidate.applicant_name)}
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {candidate && activeTab === "overview" && !editing && (
+        <div className="fade-in" style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+          <div className={`${styles.glass} ${styles.card} ${d.profile}`}>
+            <div className={d.id}>
+              <div className={d.avatar} style={{ background: `${statusColor}22`, color: statusColor }}>
+                {initialsFor(candidate.applicant_name)}
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div className={d.row}>
+                  <h1 className={d.name}>{candidate.applicant_name}</h1>
+                  <Chip status={candidate.status} />
+                </div>
+                {candidate.created_by_name && <p className={d.sub}>Added by {candidate.created_by_name}</p>}
+              </div>
+            </div>
+            <div className={d.row}>
+              <button type="button" className={`${styles.btn} ${styles.btnGlass}`} onClick={() => setEditing(true)}>
+                Edit
+              </button>
+              {candidate.created_by_email === user.email && (
+                <button type="button" className={`${styles.btn} ${styles.btnDanger}`} onClick={handleDelete}>
+                  Remove
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className={`${styles.glass} ${styles.card}`} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+            <div>
+              <h2 className={d.sectionTitle}>Contact</h2>
+              <div className={d.facts}>
+                <div>
+                  <div className={d.factLabel}>Email</div>
+                  <div className={d.factValue}>{candidate.applicant_email}</div>
+                  <AccountStatus candidateId={candidate.id} hasAccount={candidate.has_account} />
                 </div>
                 <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-                    <h1 style={{ fontSize: "21px", fontWeight: 800, color: "#fff", margin: 0 }}>
-                      {candidate.applicant_name}
-                    </h1>
-                    <StatusBadge status={candidate.status} />
-                  </div>
-                  {candidate.created_by_name && (
-                    <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.75)", margin: "4px 0 0" }}>
-                      Added by {candidate.created_by_name}
-                    </p>
-                  )}
+                  <div className={d.factLabel}>Phone</div>
+                  <div className={d.factValue}>{candidate.phone || "—"}</div>
                 </div>
-              </div>
-              <div style={{ display: "flex", gap: "8px" }}>
-                <button
-                  type="button"
-                  onClick={() => setEditing(true)}
-                  style={{
-                    padding: "9px 16px",
-                    borderRadius: "10px",
-                    border: "1px solid rgba(255,255,255,0.4)",
-                    background: "rgba(255,255,255,0.1)",
-                    color: "#fff",
-                    fontWeight: 700,
-                    fontSize: "13px",
-                    cursor: "pointer",
-                  }}
-                >
-                  Edit
-                </button>
-                {candidate.created_by_email === user.email && (
-                  <button
-                    type="button"
-                    onClick={handleDelete}
-                    style={{
-                      padding: "9px 16px",
-                      borderRadius: "10px",
-                      border: "1px solid rgba(255,255,255,0.4)",
-                      background: "rgba(220,38,38,0.25)",
-                      color: "#fff",
-                      fontWeight: 700,
-                      fontSize: "13px",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Remove
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div style={{ ...cardStyle, display: "flex", flexDirection: "column", gap: "16px" }}>
-              <div>
-                <h2 style={{ fontSize: "11px", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#94a3b8", margin: "0 0 12px" }}>
-                  Contact
-                </h2>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "16px" }}>
-                  <div>
-                    <div style={{ fontSize: "11px", color: "#94a3b8", fontWeight: 700 }}>Email</div>
-                    <div style={{ fontSize: "13px", color: "#0f172a", marginTop: "2px" }}>{candidate.applicant_email}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: "11px", color: "#94a3b8", fontWeight: 700 }}>Phone</div>
-                    <div style={{ fontSize: "13px", color: "#0f172a", marginTop: "2px" }}>{candidate.phone || "—"}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: "11px", color: "#94a3b8", fontWeight: 700 }}>Source</div>
-                    <div style={{ fontSize: "13px", color: "#0f172a", marginTop: "2px" }}>{candidate.source || "—"}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: "11px", color: "#94a3b8", fontWeight: 700 }}>Resume</div>
-                    <div style={{ fontSize: "13px", marginTop: "2px" }}>
-                      {candidate.resume_url ? (
-                        <a href={candidate.resume_url} target="_blank" rel="noreferrer" style={{ color: "#01617a", fontWeight: 700, textDecoration: "none" }}>
-                          View Resume →
-                        </a>
-                      ) : (
-                        <span style={{ color: "#0f172a" }}>—</span>
-                      )}
-                    </div>
+                <div>
+                  <div className={d.factLabel}>Source</div>
+                  <div className={d.factValue}>{candidate.source || "—"}</div>
+                </div>
+                <div>
+                  <div className={d.factLabel}>Resume</div>
+                  <div className={d.factValue}>
+                    {candidate.resume_url ? (
+                      <a href={candidate.resume_url} target="_blank" rel="noreferrer" className={d.link}>
+                        View Resume →
+                      </a>
+                    ) : (
+                      <span>—</span>
+                    )}
                   </div>
                 </div>
               </div>
-
-              {candidate.notes && (
-                <div style={{ borderTop: "1px solid #f1f5f9", paddingTop: "16px" }}>
-                  <h2 style={{ fontSize: "11px", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#94a3b8", margin: "0 0 8px" }}>
-                    Notes
-                  </h2>
-                  <p style={{ fontSize: "13px", color: "#334155", lineHeight: 1.6, margin: 0, whiteSpace: "pre-wrap" }}>
-                    {candidate.notes}
-                  </p>
-                </div>
-              )}
-
-              <div style={{ borderTop: "1px solid #f1f5f9", paddingTop: "16px", display: "flex", alignItems: "center", gap: "12px" }}>
-                <label style={{ fontSize: "11px", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#94a3b8" }}>
-                  Pipeline Status
-                </label>
-                <select
-                  value={candidate.status}
-                  onChange={(e) => handleStatusChange(e.target.value as CandidateStatus)}
-                  style={{ ...inputStyle, width: "auto" }}
-                >
-                  {CANDIDATE_STATUSES.map((s) => (
-                    <option key={s} value={s}>
-                      {s[0].toUpperCase() + s.slice(1)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {candidate && activeTab === "overview" && editing && (
-          <EditCandidateForm
-            candidate={candidate}
-            onCancel={() => setEditing(false)}
-            onSaved={(updated) => {
-              setCandidate(updated);
-              setEditing(false);
-            }}
-          />
-        )}
-
-        {candidate && activeTab === "interviews" && (
-          <div className="fade-in" style={{ marginTop: "16px" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
-              <h2 style={{ fontSize: "16px", fontWeight: 800, color: "var(--text-primary)", margin: 0 }}>
-                Interviews ({interviews.length})
-              </h2>
-              <div style={{ display: "flex", gap: "8px" }}>
-                {!showInterviewForm && (
-                  <button type="button" style={primaryButtonStyle} onClick={() => setShowInterviewForm(true)}>
-                    + Schedule Interview
-                  </button>
-                )}
-              </div>
             </div>
 
-            {showInterviewForm && (
-              <InterviewForm
-                candidateId={candidate.id}
-                onCreated={(interview) => {
-                  setInterviews((prev) => [...prev, interview].sort(
-                    (a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime()
-                  ));
-                  setShowInterviewForm(false);
-                }}
-                onCancel={() => setShowInterviewForm(false)}
-              />
+            {candidate.notes && (
+              <div className={d.divider}>
+                <h2 className={d.sectionTitle}>Notes</h2>
+                <p style={{ fontSize: "14px", color: "var(--text-2)", lineHeight: 1.6, margin: 0, whiteSpace: "pre-wrap" }}>
+                  {candidate.notes}
+                </p>
+              </div>
             )}
 
-            {interviews.length === 0 && !showInterviewForm ? (
-              <div style={{ ...cardStyle, textAlign: "center", padding: "40px 24px", color: "#94a3b8", fontSize: "13px" }}>
-                No interviews scheduled yet.
+            <div className={`${d.divider} ${d.row}`} style={{ gap: "14px" }}>
+              <label htmlFor="pipeline-status" className={d.sectionTitle} style={{ margin: 0 }}>
+                Pipeline Status
+              </label>
+              <select
+                id="pipeline-status"
+                value={candidate.status}
+                onChange={(e) => handleStatusChange(e.target.value as CandidateStatus)}
+                className={styles.inp}
+                style={{ width: "auto", minWidth: "170px" }}
+              >
+                {CANDIDATE_STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {s[0].toUpperCase() + s.slice(1)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {candidate && activeTab === "overview" && editing && (
+        <EditCandidateForm
+          candidate={candidate}
+          onCancel={() => setEditing(false)}
+          onSaved={(updated) => {
+            setCandidate(updated);
+            setEditing(false);
+          }}
+        />
+      )}
+
+      {candidate && activeTab === "applications" && (
+        <div className="fade-in" style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          <div className={d.listHead}>
+            <h2 className={d.heading}>Applications ({applications.length})</h2>
+          </div>
+          {applications.length === 0 ? (
+            <p style={{ fontSize: "14px", color: "var(--text-4)", margin: 0 }}>This candidate has not applied to any of your jobs yet.</p>
+          ) : (
+            applications.map((application) => (
+              <div key={application.id} className={`${styles.glass} ${styles.card}`} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
+                  <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "10px" }}>
+                    <Link href={`/employer/jobs/${application.job_id}`} className={d.link} style={{ fontSize: "16px", fontWeight: 600 }}>
+                      {application.job_title}
+                    </Link>
+                    <Chip status={application.status} />
+                    <PortfolioBadge application={application} />
+                  </div>
+                  <span style={{ fontSize: "12px", color: "var(--text-4)" }}>Applied {formatWhen(application.created_at)}</span>
+                </div>
+                {application.cover_letter && (
+                  <p style={{ fontSize: "13px", color: "var(--text-2)", margin: 0, whiteSpace: "pre-wrap" }}>{application.cover_letter}</p>
+                )}
+                <ApplicationResumePanel application={application} />
               </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: showInterviewForm ? "16px" : 0 }}>
-                {interviews.map((interview) => (
-                  <InterviewRow
-                    key={interview.id}
-                    interview={interview}
-                    onUpdated={(updated) =>
-                      setInterviews((prev) => prev.map((i) => (i.id === updated.id ? updated : i)))
-                    }
-                    onDeleted={async () => {
-                      if (!confirm("Cancel and remove this interview?")) return;
+            ))
+          )}
+        </div>
+      )}
+
+      {candidate && activeTab === "interviews" && (
+        <div className="fade-in" style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          <div className={d.listHead}>
+            <h2 className={d.heading}>Interviews ({interviews.length})</h2>
+            {!showInterviewForm && (
+              <button type="button" className={`${styles.btn} ${styles.btnAccent}`} onClick={() => setShowInterviewForm(true)}>
+                + Schedule Interview
+              </button>
+            )}
+          </div>
+
+          {showInterviewForm && (
+            <InterviewForm
+              candidateId={candidate.id}
+              candidateEmail={candidate.applicant_email}
+              hasAccount={candidate.has_account}
+              onCreated={(interview) => {
+                setInterviews((prev) => [...prev, interview].sort(
+                  (a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime()
+                ));
+                setShowInterviewForm(false);
+              }}
+              onCancel={() => setShowInterviewForm(false)}
+            />
+          )}
+
+          {shownInterviews.length === 0 && !showInterviewForm ? (
+            <div className={`${styles.glass} ${styles.card} ${d.empty}`}>No interviews scheduled yet.</div>
+          ) : (
+            <div className={d.stack}>
+              {shownInterviews.map((interview) => (
+                <InterviewRow
+                  key={interview.id}
+                  interview={interview}
+                  onUpdated={(updated) =>
+                    setInterviews((prev) => prev.map((i) => (i.id === updated.id ? updated : i)))
+                  }
+                  onDeleted={async () => {
+                    if (!confirm("Cancel and remove this interview?")) return;
+                    try {
                       await deleteInterview(interview.id);
                       setInterviews((prev) => prev.filter((i) => i.id !== interview.id));
-                    }}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {candidate && activeTab === "offers" && (
-          <div className="fade-in" style={{ marginTop: "16px" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
-              <h2 style={{ fontSize: "16px", fontWeight: 800, color: "var(--text-primary)", margin: 0 }}>
-                Offers ({offers.length})
-              </h2>
-              {!showOfferForm && (
-                <button type="button" style={primaryButtonStyle} onClick={() => setShowOfferForm(true)}>
-                  + Extend Offer
-                </button>
-              )}
-            </div>
-
-            {showOfferForm && (
-              <OfferForm
-                candidateId={candidate.id}
-                onCreated={(offer) => {
-                  setOffers((prev) => [offer, ...prev]);
-                  setShowOfferForm(false);
-                }}
-                onCancel={() => setShowOfferForm(false)}
-              />
-            )}
-
-            {offers.length === 0 && !showOfferForm ? (
-              <div style={{ ...cardStyle, textAlign: "center", padding: "40px 24px", color: "#94a3b8", fontSize: "13px" }}>
-                No offers extended yet.
-              </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: showOfferForm ? "16px" : 0 }}>
-                {offers.map((offer) => (
-                  <OfferRow
-                    key={offer.id}
-                    offer={offer}
-                    onUpdated={(updated) =>
-                      setOffers((prev) => prev.map((o) => (o.id === updated.id ? updated : o)))
+                    } catch (err) {
+                      alert(err instanceof Error ? err.message : "Could not remove the interview.");
                     }
-                  />
-                ))}
-              </div>
+                  }}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {candidate && !openEdition && activeTab === "offers" && (
+        <div className="fade-in" style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          <div className={d.listHead}>
+            <h2 className={d.heading}>Offers ({offers.length})</h2>
+            {!showOfferForm && (
+              <button type="button" className={`${styles.btn} ${styles.btnAccent}`} onClick={() => setShowOfferForm(true)}>
+                + Extend Offer
+              </button>
             )}
           </div>
-        )}
-      </div>
+
+          {showOfferForm && (
+            <OfferForm
+              candidateId={candidate.id}
+              onCreated={(offer) => {
+                setOffers((prev) => [offer, ...prev]);
+                setShowOfferForm(false);
+              }}
+              onCancel={() => setShowOfferForm(false)}
+            />
+          )}
+
+          {offers.length === 0 && !showOfferForm ? (
+            <div className={`${styles.glass} ${styles.card} ${d.empty}`}>No offers extended yet.</div>
+          ) : (
+            <div className={d.stack}>
+              {offers.map((offer) => (
+                <OfferRow
+                  key={offer.id}
+                  offer={offer}
+                  onUpdated={(updated) =>
+                    setOffers((prev) => prev.map((o) => (o.id === updated.id ? updated : o)))
+                  }
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </DashboardShell>
   );
 }
@@ -483,51 +495,47 @@ function EditCandidateForm({
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="fade-in"
-      style={{ ...cardStyle, marginTop: "16px", display: "flex", flexDirection: "column", gap: "14px" }}
-    >
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
-        <div>
-          <label style={labelStyle}>Full Name</label>
-          <input required value={name} onChange={(e) => setName(e.target.value)} style={inputStyle} />
+    <form onSubmit={handleSubmit} className={`fade-in ${styles.glass} ${styles.card} ${d.form}`}>
+      <div className={d.grid2}>
+        <div className={styles.field}>
+          <label className={styles.lbl}>Full Name</label>
+          <input required value={name} onChange={(e) => setName(e.target.value)} className={styles.inp} />
         </div>
-        <div>
-          <label style={labelStyle}>Email</label>
-          <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
+        <div className={styles.field}>
+          <label className={styles.lbl}>Email</label>
+          <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={styles.inp} />
         </div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
-        <div>
-          <label style={labelStyle}>Phone</label>
-          <input value={phone} onChange={(e) => setPhone(e.target.value)} style={inputStyle} />
+      <div className={d.grid2}>
+        <div className={styles.field}>
+          <label className={styles.lbl}>Phone</label>
+          <input value={phone} onChange={(e) => setPhone(e.target.value)} className={styles.inp} />
         </div>
-        <div>
-          <label style={labelStyle}>Source</label>
-          <input value={source} onChange={(e) => setSource(e.target.value)} style={inputStyle} />
+        <div className={styles.field}>
+          <label className={styles.lbl}>Source</label>
+          <input value={source} onChange={(e) => setSource(e.target.value)} className={styles.inp} />
         </div>
       </div>
-      <div>
-        <label style={labelStyle}>Resume URL</label>
-        <input value={resumeUrl} onChange={(e) => setResumeUrl(e.target.value)} style={inputStyle} />
+      <div className={styles.field}>
+        <label className={styles.lbl}>Resume URL</label>
+        <input value={resumeUrl} onChange={(e) => setResumeUrl(e.target.value)} className={styles.inp} />
       </div>
-      <div>
-        <label style={labelStyle}>Notes</label>
-        <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} style={{ ...inputStyle, resize: "vertical" }} />
+      <div className={styles.field}>
+        <label className={styles.lbl}>Notes</label>
+        <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className={`${styles.inp} ${d.textarea}`} />
       </div>
 
       {error && (
-        <p style={{ fontSize: "12px", color: "#dc2626", margin: 0 }} role="alert">
+        <p className={d.err} role="alert">
           {error}
         </p>
       )}
 
-      <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
-        <button type="button" style={secondaryButtonStyle} onClick={onCancel}>
+      <div className={d.actions}>
+        <button type="button" className={`${styles.btn} ${styles.btnGlass}`} onClick={onCancel}>
           Cancel
         </button>
-        <button type="submit" disabled={submitting} style={{ ...primaryButtonStyle, opacity: submitting ? 0.7 : 1 }}>
+        <button type="submit" disabled={submitting} className={`${styles.btn} ${styles.btnAccent}`}>
           {submitting ? "Saving…" : "Save Changes"}
         </button>
       </div>
@@ -537,13 +545,18 @@ function EditCandidateForm({
 
 function InterviewForm({
   candidateId,
+  candidateEmail,
+  hasAccount,
   onCreated,
   onCancel,
 }: {
   candidateId: string;
+  candidateEmail: string;
+  hasAccount: boolean;
   onCreated: (interview: Interview) => void;
   onCancel: () => void;
 }) {
+  const openEdition = useOpenEdition();
   const [scheduledAt, setScheduledAt] = useState("");
   const [duration, setDuration] = useState("30");
   const [type, setType] = useState<InterviewType>("phone");
@@ -562,7 +575,7 @@ function InterviewForm({
       const interview = await createInterview(candidateId, {
         scheduled_at: new Date(scheduledAt).toISOString(),
         duration_minutes: Number(duration),
-        interview_type: type,
+        interview_type: openEdition ? "video" : type,
         interviewer_name: interviewerName,
         interviewer_email: interviewerEmail || undefined,
         location_or_link: locationOrLink || undefined,
@@ -577,20 +590,26 @@ function InterviewForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ ...cardStyle, display: "flex", flexDirection: "column", gap: "12px" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: "12px" }}>
-        <div>
-          <label style={labelStyle}>Date &amp; Time</label>
-          <CalendarPickerField value={scheduledAt} onChange={setScheduledAt} inputStyle={inputStyle} />
+    <form onSubmit={handleSubmit} className={`${styles.glass} ${styles.card} ${d.form}`}>
+      {!hasAccount && (
+        <div className={d.warn}>
+          <strong>No account yet.</strong> {candidateEmail} must sign up with this exact email before they
+          can confirm or join. The confirmation email will include a sign-up link.
         </div>
-        <div>
-          <label style={labelStyle}>Duration (min)</label>
-          <input type="number" min={5} max={480} value={duration} onChange={(e) => setDuration(e.target.value)} style={inputStyle} />
+      )}
+      <div className={d.grid3}>
+        <div className={styles.field}>
+          <label className={styles.lbl}>Date &amp; Time</label>
+          <CalendarPickerField value={scheduledAt} onChange={setScheduledAt} inputStyle={darkInputStyle} />
         </div>
-        <div>
-          <label style={labelStyle}>Type</label>
-          <select value={type} onChange={(e) => setType(e.target.value as InterviewType)} style={inputStyle}>
-            {INTERVIEW_TYPES.map((t) => (
+        <div className={styles.field}>
+          <label className={styles.lbl}>Duration (min)</label>
+          <input type="number" min={5} max={480} value={duration} onChange={(e) => setDuration(e.target.value)} className={styles.inp} />
+        </div>
+        <div className={styles.field}>
+          <label className={styles.lbl}>Type</label>
+          <select value={openEdition ? "video" : type} onChange={(e) => setType(e.target.value as InterviewType)} className={styles.inp}>
+            {INTERVIEW_TYPES.filter((t) => !openEdition || t === "video").map((t) => (
               <option key={t} value={t}>
                 {t[0].toUpperCase() + t.slice(1)}
               </option>
@@ -598,53 +617,53 @@ function InterviewForm({
           </select>
         </div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-        <div>
-          <label style={labelStyle}>Interviewer Name</label>
+      <div className={d.grid2}>
+        <div className={styles.field}>
+          <label className={styles.lbl}>Interviewer Name</label>
           <input
             required
             value={interviewerName}
             onChange={(e) => setInterviewerName(e.target.value)}
             placeholder="Dana Lee"
-            style={inputStyle}
+            className={styles.inp}
           />
         </div>
-        <div>
-          <label style={labelStyle}>Interviewer Email (optional)</label>
+        <div className={styles.field}>
+          <label className={styles.lbl}>Interviewer Email (optional)</label>
           <input
             type="email"
             value={interviewerEmail}
             onChange={(e) => setInterviewerEmail(e.target.value)}
             placeholder="dana@nextenti.com"
-            style={inputStyle}
+            className={styles.inp}
           />
         </div>
       </div>
-      <div>
-        <label style={labelStyle}>Location or Video Link (optional)</label>
+      <div className={styles.field}>
+        <label className={styles.lbl}>Location or Video Link (optional)</label>
         <input
           value={locationOrLink}
           onChange={(e) => setLocationOrLink(e.target.value)}
           placeholder="https://meet…"
-          style={inputStyle}
+          className={styles.inp}
         />
       </div>
-      <div>
-        <label style={labelStyle}>Notes (optional)</label>
-        <input value={notes} onChange={(e) => setNotes(e.target.value)} style={inputStyle} />
+      <div className={styles.field}>
+        <label className={styles.lbl}>Notes (optional)</label>
+        <input value={notes} onChange={(e) => setNotes(e.target.value)} className={styles.inp} />
       </div>
 
       {error && (
-        <p style={{ fontSize: "12px", color: "#dc2626", margin: 0 }} role="alert">
+        <p className={d.err} role="alert">
           {error}
         </p>
       )}
 
-      <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
-        <button type="button" style={secondaryButtonStyle} onClick={onCancel}>
+      <div className={d.actions}>
+        <button type="button" className={`${styles.btn} ${styles.btnGlass}`} onClick={onCancel}>
           Cancel
         </button>
-        <button type="submit" disabled={submitting} style={{ ...primaryButtonStyle, opacity: submitting ? 0.7 : 1 }}>
+        <button type="submit" disabled={submitting} className={`${styles.btn} ${styles.btnAccent}`}>
           {submitting ? "Scheduling…" : "Schedule Interview"}
         </button>
       </div>
@@ -664,6 +683,7 @@ function InterviewRow({
   const [transcriptOpen, setTranscriptOpen] = useState(false);
   const [recordingsOpen, setRecordingsOpen] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const openEdition = useOpenEdition();
   const isBotTranscript = interview.interview_type === "bot" && !!interview.notes;
 
   async function handleStatusChange(status: InterviewStatus) {
@@ -685,90 +705,89 @@ function InterviewRow({
   const typeColor = INTERVIEW_TYPE_COLORS[interview.interview_type];
 
   return (
-    <div
-      style={{
-        ...cardStyle,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: "16px",
-        flexWrap: "wrap",
-        borderLeft: `4px solid ${typeColor}`,
-        borderTopLeftRadius: "6px",
-        borderBottomLeftRadius: "6px",
-      }}
-    >
-      <div>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-          <span style={{ fontSize: "14px", fontWeight: 800, color: "#0f172a" }}>{formatWhen(interview.scheduled_at)}</span>
-          <StatusBadge status={interview.status} />
-          <StatusBadge status={interview.availability_status} />
+    <div className={`${styles.glass} ${styles.card} ${d.item}`}>
+      <div className={d.itemMain}>
+        <div className={d.row}>
+          <span className={d.itemTitle}>{formatWhen(interview.scheduled_at)}</span>
+          <Chip status={interview.status} />
+          <Chip status={interview.availability_status} />
+          {!interview.candidate_has_account && <NoAccountBadge />}
         </div>
-        <div style={{ fontSize: "12px", color: "#64748b", marginTop: "4px" }}>
-          <span style={{ color: typeColor, fontWeight: 700 }}>
+        <div className={d.meta} style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+          <span style={{ width: 8, height: 8, borderRadius: "50%", background: typeColor, flex: "none" }} />
+          <span style={{ color: typeColor, fontWeight: 600 }}>
             {interview.interview_type[0].toUpperCase() + interview.interview_type.slice(1)}
-          </span>{" "}
-          · {interview.duration_minutes} min · with {interview.interviewer_name}
+          </span>
+          <span>
+            · {interview.duration_minutes} min · with {interview.interviewer_name}
+          </span>
         </div>
+        {(interview.interview_type === "video" || interview.interview_type === "bot") && interview.status === "scheduled" && (
+          <div className={d.hint}>
+            {interview.candidate_has_account
+              ? "The candidate logs in with their account email to join."
+              : "The candidate must create an account with their email before they can join."}
+          </div>
+        )}
         {interview.identity_snapshot_url && (
-          <a
-            href={interview.identity_snapshot_url}
-            target="_blank"
-            rel="noreferrer"
-            style={{ fontSize: "12px", color: "#01617a", fontWeight: 700, display: "inline-block", marginTop: "4px" }}
-          >
-            View identity snapshot →
-          </a>
+          <div style={{ marginTop: "8px" }}>
+            <a href={interview.identity_snapshot_url} target="_blank" rel="noreferrer" className={d.link} style={{ fontSize: "13px" }}>
+              View identity snapshot →
+            </a>
+          </div>
+        )}
+        {interview.face_scan_urls && interview.face_scan_urls.length > 0 && (
+          <div style={{ marginTop: "10px" }}>
+            <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--text-2)", marginBottom: "6px" }}>Four-corner face verification</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+              {interview.face_scan_urls.map((shot) => (
+                <a key={shot.angle} href={shot.url} target="_blank" rel="noreferrer" style={{ textDecoration: "none", textAlign: "center" }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={shot.url}
+                    alt={`Face verification, ${shot.angle.replace("_", " ")}`}
+                    style={{ width: "88px", height: "66px", objectFit: "cover", borderRadius: "8px", display: "block", transform: "scaleX(-1)" }}
+                  />
+                  <span style={{ fontSize: "11px", color: "var(--text-3)", textTransform: "capitalize" }}>{shot.angle.replace("_", " ")}</span>
+                </a>
+              ))}
+            </div>
+          </div>
         )}
         {interview.location_or_link && (
-          <a href={interview.location_or_link} target="_blank" rel="noreferrer" style={{ fontSize: "12px", color: "#01617a" }}>
-            {interview.location_or_link}
-          </a>
-        )}
-        {interview.notes && !isBotTranscript && (
-          <div style={{ fontSize: "12px", color: "#64748b", marginTop: "4px", whiteSpace: "pre-wrap" }}>
-            {interview.notes}
+          <div style={{ marginTop: "8px" }}>
+            <a href={interview.location_or_link} target="_blank" rel="noreferrer" className={d.link} style={{ fontSize: "13px" }}>
+              {interview.location_or_link}
+            </a>
           </div>
         )}
+        {interview.notes && !isBotTranscript && <div className={d.note}>{interview.notes}</div>}
         {isBotTranscript && (
-          <div style={{ marginTop: "4px" }}>
-            <button
-              type="button"
-              onClick={() => setTranscriptOpen((v) => !v)}
-              style={{
-                fontSize: "12px",
-                fontWeight: 700,
-                color: "#01617a",
-                background: "transparent",
-                border: "none",
-                padding: 0,
-                cursor: "pointer",
-              }}
-            >
+          <div style={{ marginTop: "10px" }}>
+            <button type="button" onClick={() => setTranscriptOpen((v) => !v)} className={d.linkBtn}>
               {transcriptOpen ? "Hide transcript ▲" : "View transcript ▾"}
             </button>
-            {transcriptOpen && (
-              <div style={{ fontSize: "12px", color: "#64748b", marginTop: "6px", whiteSpace: "pre-wrap" }}>
-                {interview.notes}
-              </div>
-            )}
+            {transcriptOpen && <div className={d.note}>{interview.notes}</div>}
           </div>
         )}
-        {interview.interview_type === "bot" && interview.ai_evaluation && (
-          <div
-            style={{
-              marginTop: "10px",
-              padding: "10px 12px",
-              borderRadius: "10px",
-              background: "#f0f9ff",
-              border: "1px solid #bae6fd",
-              maxWidth: "480px",
-            }}
-          >
-            <div style={{ fontSize: "11px", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#0369a1", marginBottom: "6px" }}>
-              AI Evaluation
-            </div>
-            <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginBottom: "6px" }}>
+        {!openEdition && (interview.interview_type === "bot" || interview.interview_type === "video") && interview.ai_evaluation && (
+          <div className={d.eval}>
+            <div className={d.evalTitle}>AI Evaluation</div>
+            {(() => {
+              const verdict = recommendationOf(interview.ai_evaluation);
+              const color = verdict === "no_hire" ? "#e11d48" : verdict === "maybe" ? "#d97706" : "#0a9b5a";
+              return (
+                <div style={{ marginBottom: "10px" }}>
+                  <span style={{ display: "inline-block", padding: "4px 12px", borderRadius: "999px", fontSize: "12px", fontWeight: 700, color, border: `1px solid ${color}` }}>
+                    {RECOMMENDATION_LABELS[verdict]}
+                  </span>
+                  {interview.ai_evaluation.recommendation_reason && (
+                    <p style={{ fontSize: "13px", color: "var(--text-2)", margin: "8px 0 0", lineHeight: 1.55 }}>{interview.ai_evaluation.recommendation_reason}</p>
+                  )}
+                </div>
+              );
+            })()}
+            <div className={d.scores}>
               {(
                 [
                   ["Communication", interview.ai_evaluation.communication],
@@ -781,58 +800,54 @@ function InterviewRow({
               )
                 .filter(([, score]) => typeof score === "number")
                 .map(([label, score]) => (
-                  <div key={label} style={{ fontSize: "11px", color: "#0c4a6e" }}>
-                    <span style={{ fontWeight: 700 }}>{score}/10</span> {label}
+                  <div key={label} className={d.score}>
+                    <b>{score}/10</b> {label}
                   </div>
                 ))}
             </div>
-            <p style={{ fontSize: "12px", color: "#0c4a6e", margin: 0 }}>{interview.ai_evaluation.summary}</p>
+            <p style={{ fontSize: "13px", color: "var(--text-2)", margin: 0, lineHeight: 1.55 }}>{interview.ai_evaluation.summary}</p>
+            {interview.ai_evaluation.proctoring && (
+              <p style={{ fontSize: "12px", color: "var(--text-3)", margin: "8px 0 0" }}>
+                Proctoring: {interview.ai_evaluation.proctoring.look_away_warnings} look-away warning
+                {interview.ai_evaluation.proctoring.look_away_warnings === 1 ? "" : "s"} of {interview.ai_evaluation.proctoring.max_warnings} allowed
+                ({interview.ai_evaluation.proctoring.experience_level} role)
+              </p>
+            )}
           </div>
         )}
         {interview.recording_urls && interview.recording_urls.length > 0 && (
-          <div style={{ marginTop: "8px" }}>
-            <button
-              type="button"
-              onClick={() => setRecordingsOpen((v) => !v)}
-              style={{
-                fontSize: "12px",
-                fontWeight: 700,
-                color: "#01617a",
-                background: "transparent",
-                border: "none",
-                padding: 0,
-                cursor: "pointer",
-              }}
-            >
+          <div style={{ marginTop: "10px" }}>
+            <button type="button" onClick={() => setRecordingsOpen((v) => !v)} className={d.linkBtn}>
               {recordingsOpen ? "Hide recording ▲" : `View recording${interview.recording_urls.length > 1 ? "s" : ""} ▾`}
             </button>
             {recordingsOpen && (
               <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "8px", maxWidth: "420px" }}>
                 {interview.recording_urls.map((url, i) => (
                   // eslint-disable-next-line jsx-a11y/media-has-caption
-                  <video key={url} src={url} controls style={{ width: "100%", borderRadius: "10px", background: "#000" }} aria-label={`Interview recording ${i + 1}`} />
+                  <video key={url} src={url} controls className={d.video} aria-label={`Interview recording ${i + 1}`} />
                 ))}
               </div>
             )}
           </div>
         )}
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+      <div className={d.itemActions}>
         {interview.interview_type === "video" && (
           <>
             <Link
               href={`/call/${interview.id}`}
               target="_blank"
-              style={{ ...secondaryButtonStyle, padding: "6px 10px", fontSize: "12px", textDecoration: "none" }}
+              className={`${styles.btn} ${styles.btnGlass} ${styles.btnSm}`}
+              style={{ textDecoration: "none" }}
             >
               Join Call
             </Link>
             <button
               type="button"
               onClick={() => copyLink(`/call/${interview.id}`)}
-              style={{ ...secondaryButtonStyle, padding: "6px 10px", fontSize: "12px" }}
+              className={`${styles.btn} ${styles.btnGlass} ${styles.btnSm}`}
             >
-              {linkCopied ? "Copied!" : "Copy Invite Link"}
+              {linkCopied ? "Copied — they must log in" : "Copy Invite Link"}
             </button>
           </>
         )}
@@ -840,23 +855,16 @@ function InterviewRow({
           <button
             type="button"
             onClick={() => copyLink(`/bot-interview/${interview.id}`)}
-            style={{ ...secondaryButtonStyle, padding: "6px 10px", fontSize: "12px" }}
+            className={`${styles.btn} ${styles.btnGlass} ${styles.btnSm}`}
           >
-            {linkCopied ? "Copied!" : "Copy Interview Link"}
+            {linkCopied ? "Copied — they must log in" : "Copy Interview Link"}
           </button>
         )}
         <select
           value={interview.status}
           onChange={(e) => handleStatusChange(e.target.value as InterviewStatus)}
-          style={{
-            fontSize: "12px",
-            fontWeight: 700,
-            padding: "7px 10px",
-            borderRadius: "9px",
-            border: "1px solid #e2e8f0",
-            color: "#334155",
-            background: "#fff",
-          }}
+          className={`${styles.chip} ${styles.chipSelect}`}
+          aria-label="Interview status"
         >
           {INTERVIEW_STATUSES.map((s) => (
             <option key={s} value={s}>
@@ -864,19 +872,7 @@ function InterviewRow({
             </option>
           ))}
         </select>
-        <button
-          type="button"
-          onClick={onDeleted}
-          style={{
-            fontSize: "12px",
-            fontWeight: 700,
-            color: "#dc2626",
-            background: "transparent",
-            border: "none",
-            padding: "6px 4px",
-            cursor: "pointer",
-          }}
-        >
+        <button type="button" onClick={onDeleted} className={d.dangerLink}>
           Remove
         </button>
       </div>
@@ -922,43 +918,43 @@ function OfferForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ ...cardStyle, display: "flex", flexDirection: "column", gap: "12px" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "12px" }}>
-        <div>
-          <label style={labelStyle}>Salary</label>
-          <input required type="number" min={0} value={salary} onChange={(e) => setSalary(e.target.value)} placeholder="115000" style={inputStyle} />
+    <form onSubmit={handleSubmit} className={`${styles.glass} ${styles.card} ${d.form}`}>
+      <div className={d.grid21}>
+        <div className={styles.field}>
+          <label className={styles.lbl}>Salary</label>
+          <input required type="number" min={0} value={salary} onChange={(e) => setSalary(e.target.value)} placeholder="115000" className={styles.inp} />
         </div>
-        <div>
-          <label style={labelStyle}>Currency</label>
-          <input value={currency} onChange={(e) => setCurrency(e.target.value)} style={inputStyle} />
-        </div>
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-        <div>
-          <label style={labelStyle}>Start Date</label>
-          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={inputStyle} />
-        </div>
-        <div>
-          <label style={labelStyle}>Expires</label>
-          <input type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} style={inputStyle} />
+        <div className={styles.field}>
+          <label className={styles.lbl}>Currency</label>
+          <input value={currency} onChange={(e) => setCurrency(e.target.value)} className={styles.inp} />
         </div>
       </div>
-      <div>
-        <label style={labelStyle}>Notes (optional)</label>
-        <input value={notes} onChange={(e) => setNotes(e.target.value)} style={inputStyle} />
+      <div className={d.grid2}>
+        <div className={styles.field}>
+          <label className={styles.lbl}>Start Date</label>
+          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={styles.inp} style={{ colorScheme: "dark" }} />
+        </div>
+        <div className={styles.field}>
+          <label className={styles.lbl}>Expires</label>
+          <input type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} className={styles.inp} style={{ colorScheme: "dark" }} />
+        </div>
+      </div>
+      <div className={styles.field}>
+        <label className={styles.lbl}>Notes (optional)</label>
+        <input value={notes} onChange={(e) => setNotes(e.target.value)} className={styles.inp} />
       </div>
 
       {error && (
-        <p style={{ fontSize: "12px", color: "#dc2626", margin: 0 }} role="alert">
+        <p className={d.err} role="alert">
           {error}
         </p>
       )}
 
-      <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
-        <button type="button" style={secondaryButtonStyle} onClick={onCancel}>
+      <div className={d.actions}>
+        <button type="button" className={`${styles.btn} ${styles.btnGlass}`} onClick={onCancel}>
           Cancel
         </button>
-        <button type="submit" disabled={submitting} style={{ ...primaryButtonStyle, opacity: submitting ? 0.7 : 1 }}>
+        <button type="submit" disabled={submitting} className={`${styles.btn} ${styles.btnAccent}`}>
           {submitting ? "Sending…" : "Send Offer"}
         </button>
       </div>
@@ -973,48 +969,27 @@ function OfferRow({ offer, onUpdated }: { offer: Offer; onUpdated: (offer: Offer
   }
 
   return (
-    <div
-      style={{
-        ...cardStyle,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: "16px",
-        flexWrap: "wrap",
-        borderLeft: "4px solid #15803d",
-        borderTopLeftRadius: "6px",
-        borderBottomLeftRadius: "6px",
-      }}
-    >
-      <div>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-          <span style={{ fontSize: "16px", fontWeight: 800, color: "#0f172a" }}>
+    <div className={`${styles.glass} ${styles.card} ${d.item}`} style={{ alignItems: "center" }}>
+      <div className={d.itemMain}>
+        <div className={d.row}>
+          <span className={d.itemTitle} style={{ fontSize: "22px" }}>
             {offer.currency} {offer.salary.toLocaleString()}
           </span>
-          <StatusBadge status={offer.status} />
+          <Chip status={offer.status} />
         </div>
-        <div style={{ fontSize: "12px", color: "#64748b", marginTop: "4px" }}>
+        <div className={d.meta}>
           {offer.start_date && <span>Starts {offer.start_date}</span>}
           {offer.start_date && offer.expires_at && <span> · </span>}
           {offer.expires_at && <span>Expires {offer.expires_at}</span>}
           {!offer.start_date && !offer.expires_at && <span>No dates set</span>}
         </div>
-        {offer.notes && (
-          <div style={{ color: "#334155", fontSize: "12px", marginTop: "6px", whiteSpace: "pre-wrap" }}>{offer.notes}</div>
-        )}
+        {offer.notes && <div className={d.note}>{offer.notes}</div>}
       </div>
       <select
         value={offer.status}
         onChange={(e) => handleStatusChange(e.target.value as OfferStatus)}
-        style={{
-          fontSize: "12px",
-          fontWeight: 700,
-          padding: "7px 10px",
-          borderRadius: "9px",
-          border: "1px solid #e2e8f0",
-          color: "#334155",
-          background: "#fff",
-        }}
+        className={`${styles.chip} ${styles.chipSelect}`}
+        aria-label="Offer status"
       >
         {OFFER_STATUSES.map((s) => (
           <option key={s} value={s}>
@@ -1022,6 +997,62 @@ function OfferRow({ offer, onUpdated }: { offer: Offer; onUpdated: (offer: Offer
           </option>
         ))}
       </select>
+    </div>
+  );
+}
+
+function NoAccountBadge() {
+  return (
+    <span
+      title="This candidate has no verified account yet, so they can't confirm or join until they sign up."
+      className={styles.chip}
+      style={{ color: "#0080B8", background: "#0080B829", fontSize: "11px", padding: "3px 10px" }}
+    >
+      No account yet
+    </span>
+  );
+}
+
+function AccountStatus({ candidateId, hasAccount }: { candidateId: string; hasAccount: boolean }) {
+  const [sending, setSending] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function invite() {
+    setSending(true);
+    setError(null);
+    try {
+      const result = await inviteCandidateToSignUp(candidateId);
+      setMessage(result.detail);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not send the invitation.");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  if (hasAccount) {
+    return (
+      <span
+        className={styles.chip}
+        style={{ marginTop: "8px", color: "#0B7A4B", background: "#0B7A4B29", fontSize: "11px", padding: "3px 10px" }}
+      >
+        Has account
+      </span>
+    );
+  }
+
+  return (
+    <div style={{ marginTop: "8px", display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+      <NoAccountBadge />
+      {message ? (
+        <span style={{ fontSize: "12px", color: "#0B7A4B", fontWeight: 600 }}>{message}</span>
+      ) : (
+        <button type="button" onClick={invite} disabled={sending} className={d.linkBtn}>
+          {sending ? "Sending…" : "Invite to sign up"}
+        </button>
+      )}
+      {error && <span style={{ fontSize: "12px", color: "#c4123a" }}>{error}</span>}
     </div>
   );
 }

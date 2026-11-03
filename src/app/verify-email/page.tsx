@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { VerifyEmailClient } from "./VerifyEmailClient";
 
 export const metadata: Metadata = {
-  title: "Confirm Email | Nextenti Talent Flow",
+  title: "Confirm Email | Krafziel",
 };
 
 export default function VerifyEmailPage() {

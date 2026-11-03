@@ -1,11 +1,20 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ConsentGate } from "@/components/interview/ConsentGate";
+import styles from "./CallRoom.module.css";
+import { BrandLogo } from "@/components/BrandLogo";
 import { captureVideoFrame } from "@/lib/captureSnapshot";
+import { getStoredToken, requireSessionOrRedirect } from "@/lib/auth";
+import { isOpenEdition } from "@/lib/edition";
 import { submitInterviewConsent, updateInterview, uploadIdentitySnapshot } from "@/lib/candidates";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8006";
+
+function authHeader(): Record<string, string> {
+  const token = getStoredToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 const WS_URL = API_URL.replace(/^http/, "ws");
 const FALLBACK_ICE_SERVERS: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
 const DISCONNECT_GRACE_MS = 6000;
@@ -55,7 +64,6 @@ type ChatMessage = {
 };
 
 type CallStatus =
-  | "email-gate"
   | "checking-access"
   | "consent"
   | "requesting-media"
@@ -66,7 +74,6 @@ type CallStatus =
   | "ended";
 
 const STATUS_TEXT: Record<CallStatus, string> = {
-  "email-gate": "Confirm your email to join…",
   "checking-access": "Checking access…",
   consent: "Waiting for consent…",
   "requesting-media": "Requesting camera and microphone…",
@@ -105,10 +112,10 @@ export function CallRoomClient({ roomId }: { roomId: string }) {
   const callStartRef = useRef<number | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
 
-  const [status, setStatus] = useState<CallStatus>("email-gate");
-  const [confirmedEmail, setConfirmedEmail] = useState<string | null>(null);
-  const [emailInput, setEmailInput] = useState("");
-  const [emailGateError, setEmailGateError] = useState<string | null>(null);
+  const [status, setStatus] = useState<CallStatus>("checking-access");
+  // Both sides join with their own login token: the candidate via a verified account
+  // whose email matches the interview, the employer via their organization login.
+  const [authToken, setAuthToken] = useState<string | null>(null);
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -132,6 +139,7 @@ export function CallRoomClient({ roomId }: { roomId: string }) {
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
+  const [feedbackNeedsLogin, setFeedbackNeedsLogin] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatOpenRef = useRef(false);
 
@@ -247,7 +255,7 @@ export function CallRoomClient({ roomId }: { roomId: string }) {
     }
 
     function connectSignaling() {
-      const ws = new WebSocket(`${WS_URL}/ws/call/${roomId}?email=${encodeURIComponent(confirmedEmail ?? "")}`);
+      const ws = new WebSocket(`${WS_URL}/ws/call/${roomId}?token=${encodeURIComponent(authToken ?? "")}`);
       wsRef.current = ws;
 
       ws.onmessage = async (event) => {
@@ -262,7 +270,7 @@ export function CallRoomClient({ roomId }: { roomId: string }) {
 
         if (msg.type === "unauthorized") {
           setStatus("ended");
-          setError("That email isn't associated with this interview.");
+          setError("This interview isn't linked to your account. Log in with the email it was sent to.");
           ws.close();
           return;
         }
@@ -270,7 +278,7 @@ export function CallRoomClient({ roomId }: { roomId: string }) {
         if (msg.type === "role-taken") {
           setStatus("ended");
           setError(
-            "Someone has already joined this interview with that email. If this isn't you, contact your recruiter."
+            "Someone has already joined this interview with this account. If this isn't you, contact your recruiter."
           );
           ws.close();
           return;
@@ -385,7 +393,7 @@ export function CallRoomClient({ roomId }: { roomId: string }) {
 
     async function fetchIceServers() {
       try {
-        const resp = await fetch(`${API_URL}/turn-credentials`);
+        const resp = await fetch(`${API_URL}/turn-credentials`, { headers: authHeader() });
         if (!resp.ok) return;
         const data = await resp.json();
         if (Array.isArray(data.iceServers) && data.iceServers.length) {
@@ -509,6 +517,7 @@ export function CallRoomClient({ roomId }: { roomId: string }) {
         form.append("file", blob, "recording.webm");
         await fetch(`${API_URL}/interviews/${roomId}/recording?participant=local`, {
           method: "POST",
+          headers: authHeader(),
           body: form,
         });
       } catch (err) {
@@ -517,6 +526,7 @@ export function CallRoomClient({ roomId }: { roomId: string }) {
     }
 
     async function submitCallEvaluation() {
+      if (isOpenEdition()) return; // open source edition: no AI scoring, no scorecards
       if (evaluationSubmittedRef.current) return;
       const transcript = transcriptRef.current;
       if (transcript.length < MIN_TRANSCRIPT_TURNS) return;
@@ -524,7 +534,7 @@ export function CallRoomClient({ roomId }: { roomId: string }) {
       try {
         await fetch(`${API_URL}/interviews/${roomId}/call-evaluation`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...authHeader() },
           body: JSON.stringify({ transcript }),
         });
       } catch (err) {
@@ -558,7 +568,7 @@ export function CallRoomClient({ roomId }: { roomId: string }) {
       }
     }
 
-    if (confirmedEmail) {
+    if (authToken) {
       start();
     }
 
@@ -575,7 +585,39 @@ export function CallRoomClient({ roomId }: { roomId: string }) {
       localStreamRef.current?.getTracks().forEach((t) => t.stop());
       screenStreamRef.current?.getTracks().forEach((t) => t.stop());
     };
-  }, [roomId, confirmedEmail]);
+  }, [roomId, authToken]);
+
+  useEffect(() => {
+    if (!requireSessionOrRedirect(["candidate", "employer"])) return;
+    setAuthToken(getStoredToken());
+    setStatus("requesting-media");
+  }, []);
+
+  // The self-view <video> can mount after the camera stream was obtained (and on phones the first
+  // attach can stay black), so (re)attach it whenever the page state changes.
+  useEffect(() => {
+    const video = localVideoRef.current;
+    const stream = screenSharing ? screenStreamRef.current : localStreamRef.current;
+    if (video && stream && video.srcObject !== stream) video.srcObject = stream;
+    video?.play().catch(() => {});
+  }, [status, screenSharing, camOn, chatOpen]);
+
+  // Browsers mute the other person's audio when the page joins without a tap. Turn it on at the
+  // first tap, click or key press anywhere on the page.
+  useEffect(() => {
+    if (!remoteMuted) return;
+    const unmute = () => {
+      const video = remoteVideoRef.current;
+      if (video) {
+        video.muted = false;
+        video.play().catch(() => {});
+      }
+      setRemoteMuted(false);
+    };
+    const events = ["pointerdown", "keydown", "touchend"] as const;
+    events.forEach((e) => window.addEventListener(e, unmute, { once: true }));
+    return () => events.forEach((e) => window.removeEventListener(e, unmute));
+  }, [remoteMuted]);
 
   useEffect(() => {
     if (status !== "connected") return;
@@ -686,6 +728,7 @@ export function CallRoomClient({ roomId }: { roomId: string }) {
   async function submitFeedback() {
     setFeedbackSubmitting(true);
     setFeedbackError(null);
+    setFeedbackNeedsLogin(false);
     try {
       await updateInterview(roomId, {
         employer_feedback: feedbackText.trim() || undefined,
@@ -693,7 +736,13 @@ export function CallRoomClient({ roomId }: { roomId: string }) {
       });
       setFeedbackSubmitted(true);
     } catch (err) {
-      setFeedbackError(err instanceof Error ? err.message : "Could not save feedback.");
+      const message = err instanceof Error ? err.message : "";
+      if (/not authenticated|invalid or expired token|user not found/i.test(message)) {
+        setFeedbackNeedsLogin(true);
+        setFeedbackError("Your employer login has expired on this page. Log in again, then submit your feedback.");
+      } else {
+        setFeedbackError(message || "Could not save feedback.");
+      }
     } finally {
       setFeedbackSubmitting(false);
     }
@@ -752,539 +801,270 @@ export function CallRoomClient({ roomId }: { roomId: string }) {
     }
   }
 
-  function submitEmailGate(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const trimmed = emailInput.trim();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-      setEmailGateError("Enter a valid email address.");
-      return;
-    }
-    setEmailGateError(null);
-    setConfirmedEmail(trimmed);
-    setStatus("requesting-media");
-  }
-
-  if (status === "email-gate") {
-    return (
-      <div
-        style={{
-          minHeight: "100vh",
-          background: "#0a0a0c",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "24px",
-        }}
-      >
-        <form
-          onSubmit={submitEmailGate}
-          style={{
-            width: "100%",
-            maxWidth: "380px",
-            background: "rgba(255,255,255,0.06)",
-            border: "1px solid rgba(255,255,255,0.14)",
-            borderRadius: "16px",
-            padding: "28px",
-            display: "flex",
-            flexDirection: "column",
-            gap: "14px",
-          }}
-        >
-          <h1 style={{ fontSize: "16px", fontWeight: 800, color: "#fff", margin: 0 }}>
-            Confirm your email to join
-          </h1>
-          <p style={{ fontSize: "12.5px", color: "rgba(255,255,255,0.6)", margin: 0, lineHeight: 1.5 }}>
-            This confirms you're the candidate or interviewer this call was set up for — each side can only
-            join once.
-          </p>
-          <input
-            type="email"
-            required
-            autoFocus
-            value={emailInput}
-            onChange={(e) => setEmailInput(e.target.value)}
-            placeholder="you@example.com"
-            style={{
-              padding: "11px 14px",
-              borderRadius: "10px",
-              border: "1px solid rgba(255,255,255,0.2)",
-              background: "rgba(255,255,255,0.08)",
-              color: "#fff",
-              fontSize: "13px",
-            }}
-          />
-          {emailGateError && (
-            <p style={{ fontSize: "12px", color: "#fca5a5", margin: 0 }} role="alert">
-              {emailGateError}
-            </p>
-          )}
-          <button
-            type="submit"
-            style={{
-              padding: "11px",
-              borderRadius: "10px",
-              border: "none",
-              background: "#01617a",
-              color: "#fff",
-              fontWeight: 700,
-              fontSize: "13px",
-              cursor: "pointer",
-            }}
-          >
-            Continue to call
-          </button>
-        </form>
-      </div>
-    );
-  }
+  if (status === "checking-access" && !authToken) return null;
 
   if (status === "consent") {
     return <ConsentGate onAccept={handleConsentAccept} onDecline={handleConsentDecline} />;
   }
 
+  const roleLabel = myRole === "employer" ? "Employer" : myRole === "candidate" ? "Candidate" : "You";
+  const otherLabel = myRole === "employer" ? "Candidate" : myRole === "candidate" ? "Interviewer" : "Participant";
+  const qualityColor = connectionQuality === "good" ? "#22c55e" : connectionQuality === "fair" ? "#f59e0b" : "#ef4444";
+
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#0a0a0c",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "24px",
-        gap: "16px",
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-        <span
-          style={{
-            width: "8px",
-            height: "8px",
-            borderRadius: "50%",
-            background: status === "connected" ? "#22c55e" : status === "ended" ? "#64748b" : "#f59e0b",
-          }}
-        />
-        <span style={{ fontSize: "13px", fontWeight: 700, color: "rgba(255,255,255,0.85)" }}>
-          {STATUS_TEXT[status]}
-        </span>
-        {recording && (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", fontSize: "11px", fontWeight: 800, color: "#f87171" }}>
-            <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: "#f87171" }} />
-            REC
-          </span>
-        )}
-        {elapsedSeconds > 0 && (status === "connected" || status === "ended") && (
-          <span style={{ fontSize: "12px", fontFamily: "monospace", color: "rgba(255,255,255,0.7)" }}>
-            {formatDuration(elapsedSeconds)}
-          </span>
-        )}
-        {connectionQuality && status === "connected" && (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", fontSize: "11px", fontWeight: 700, color: "rgba(255,255,255,0.7)" }}>
-            <span
-              style={{
-                width: "7px",
-                height: "7px",
-                borderRadius: "50%",
-                background:
-                  connectionQuality === "good" ? "#22c55e" : connectionQuality === "fair" ? "#f59e0b" : "#ef4444",
-              }}
-            />
-            {connectionQuality === "good" ? "Good" : connectionQuality === "fair" ? "Fair" : "Poor"} connection
-          </span>
-        )}
-        {debugInfo && (
-          <span style={{ fontSize: "10px", fontFamily: "monospace", color: "rgba(255,255,255,0.4)" }}>
-            {debugInfo}
-          </span>
-        )}
-        <button
-          type="button"
-          onClick={copyInviteLink}
-          style={{
-            marginLeft: "12px",
-            padding: "6px 12px",
-            borderRadius: "8px",
-            border: "1px solid rgba(255,255,255,0.2)",
-            background: "rgba(255,255,255,0.08)",
-            color: "#fff",
-            fontSize: "12px",
-            fontWeight: 700,
-            cursor: "pointer",
-          }}
-        >
-          {copied ? "Link copied!" : "Copy invite link"}
-        </button>
-      </div>
+    <div className={styles.root}>
+      <header className={styles.top}>
+        <div className={styles.brand}>
+          <BrandLogo height={36} />
+          <span className={styles.brandSub}>Interview room</span>
+        </div>
 
-      {error && (
-        <p style={{ fontSize: "13px", color: "#fca5a5", margin: 0 }} role="alert">
-          {error}
-        </p>
-      )}
+        <div className={styles.statusPill} title={debugInfo || undefined}>
+          <span className={`${styles.dot} ${status === "connected" ? styles.dotOn : status === "ended" ? styles.dotEnd : ""}`} />
+          <span>{STATUS_TEXT[status]}</span>
+          {elapsedSeconds > 0 && (status === "connected" || status === "ended") && <span className={styles.timer}>{formatDuration(elapsedSeconds)}</span>}
+          {connectionQuality && status === "connected" && (
+            <span className={styles.q}>
+              <i style={{ background: qualityColor }} />
+              {connectionQuality === "good" ? "Good" : connectionQuality === "fair" ? "Fair" : "Poor"}
+            </span>
+          )}
+        </div>
 
-      <div style={{ display: "flex", gap: "16px", alignItems: "flex-start", width: "min(1240px, 100%)", justifyContent: "center", flexWrap: "wrap" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: "16px", alignItems: "center", flex: "1 1 auto", minWidth: 0 }}>
-          <div
-            style={{
-              position: "relative",
-              width: "min(960px, 100%)",
-              aspectRatio: "16 / 9",
-              background: "#000",
-              borderRadius: "16px",
-              overflow: "hidden",
-              border: "1px solid rgba(255,255,255,0.12)",
-            }}
-          >
-            <video
-              ref={remoteVideoRef}
-              autoPlay
-              playsInline
-              style={{ width: "100%", height: "100%", objectFit: "cover", background: "#111" }}
-            />
-            {remoteMuted && status === "connected" && (
-              <button
-                type="button"
-                onClick={() => {
-                  const video = remoteVideoRef.current;
-                  if (video) {
-                    video.muted = false;
-                    video.play().catch(() => {});
-                  }
-                  setRemoteMuted(false);
-                }}
-                style={{
-                  position: "absolute",
-                  top: "12px",
-                  left: "12px",
-                  padding: "6px 12px",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(255,255,255,0.3)",
-                  background: "rgba(0,0,0,0.6)",
-                  color: "#fff",
-                  fontSize: "12px",
-                  fontWeight: 700,
-                  cursor: "pointer",
-                }}
-              >
-                🔇 Unmute
-              </button>
-            )}
-            {status !== "connected" && (
-              <div
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "rgba(255,255,255,0.5)",
-                  fontSize: "13px",
-                }}
-              >
-                {status === "ended" ? "The other person has left." : "Waiting for the other participant’s video…"}
+        <div className={styles.topRight}>
+          {recording && (
+            <span className={styles.rec}>
+              <i /> REC
+            </span>
+          )}
+          <button type="button" onClick={copyInviteLink} className={styles.ghost}>
+            {copied ? "Link copied!" : "Copy invite link"}
+          </button>
+        </div>
+      </header>
+
+      <div className={styles.stage}>
+        <div className={styles.main}>
+          <video ref={remoteVideoRef} autoPlay playsInline className={styles.remote} />
+
+          {status !== "connected" && (
+            <div className={styles.waiting}>
+              <div className={styles.ring}>
+                <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="8" r="3.6" />
+                  <path d="M4.5 20c.8-3.6 3.8-5.6 7.5-5.6s6.7 2 7.5 5.6" />
+                </svg>
               </div>
-            )}
-
-            {captionsOn && (remoteCaption || myCaption) && (
-              <div
-                style={{
-                  position: "absolute",
-                  left: "50%",
-                  bottom: "20px",
-                  transform: "translateX(-50%)",
-                  maxWidth: "88%",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: "4px",
-                  pointerEvents: "none",
-                }}
-              >
-                {remoteCaption && (
-                  <span
-                    style={{
-                      background: "rgba(0,0,0,0.65)",
-                      color: "#fff",
-                      fontSize: "14px",
-                      fontWeight: 600,
-                      padding: "6px 12px",
-                      borderRadius: "8px",
-                      lineHeight: 1.4,
-                    }}
-                  >
-                    {remoteCaption}
-                  </span>
-                )}
-                {myCaption && (
-                  <span
-                    style={{
-                      background: "rgba(0,0,0,0.45)",
-                      color: "rgba(255,255,255,0.75)",
-                      fontSize: "12.5px",
-                      fontWeight: 600,
-                      padding: "5px 10px",
-                      borderRadius: "8px",
-                      lineHeight: 1.4,
-                    }}
-                  >
-                    {myCaption}
-                  </span>
-                )}
+              <div className={styles.waitTitle}>{status === "ended" ? "The call has ended" : status === "connecting" ? "Connecting…" : `Waiting for the ${otherLabel.toLowerCase()}`}</div>
+              <div className={styles.waitSub}>
+                {status === "ended"
+                  ? "The other person has left the room."
+                  : "You'll see each other as soon as they join. Share the invite link if they haven't got it."}
               </div>
-            )}
-
-            <div
-              style={{
-                position: "absolute",
-                bottom: "16px",
-                right: "16px",
-                width: "160px",
-                aspectRatio: "16 / 9",
-                borderRadius: "10px",
-                overflow: "hidden",
-                border: "2px solid rgba(255,255,255,0.3)",
-                background: "#000",
-              }}
-            >
-              <video
-                ref={localVideoRef}
-                autoPlay
-                playsInline
-                muted
-                style={{ width: "100%", height: "100%", objectFit: "cover", transform: "scaleX(-1)" }}
-              />
             </div>
-          </div>
+          )}
 
-          <div style={{ display: "flex", gap: "10px" }}>
-            <button type="button" onClick={toggleMic} style={controlButtonStyle(!micOn)}>
-              {micOn ? "Mute" : "Unmute"}
-            </button>
-            <button type="button" onClick={toggleCam} style={controlButtonStyle(!camOn)}>
-              {camOn ? "Stop Camera" : "Start Camera"}
-            </button>
-            <button type="button" onClick={toggleCaptions} style={controlButtonStyle(captionsOn)}>
-              {captionsOn ? "Captions On" : "Captions Off"}
-            </button>
-            <button type="button" onClick={toggleScreenShare} style={controlButtonStyle(screenSharing)}>
-              {screenSharing ? "Stop Sharing" : "Share Screen"}
-            </button>
+          {remoteMuted && status === "connected" && (
             <button
               type="button"
-              onClick={() => setChatOpen((v) => !v)}
-              style={{ ...controlButtonStyle(chatOpen), position: "relative" }}
+              className={styles.sound}
+              onClick={() => {
+                const video = remoteVideoRef.current;
+                if (video) {
+                  video.muted = false;
+                  video.play().catch(() => {});
+                }
+                setRemoteMuted(false);
+              }}
             >
-              Chat
-              {unreadChat > 0 && (
-                <span
-                  style={{
-                    position: "absolute",
-                    top: "-6px",
-                    right: "-6px",
-                    background: "#01617a",
-                    color: "#fff",
-                    borderRadius: "999px",
-                    fontSize: "10px",
-                    fontWeight: 800,
-                    minWidth: "18px",
-                    height: "18px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    padding: "0 4px",
-                  }}
-                >
-                  {unreadChat}
-                </span>
-              )}
+              🔊 Tap to turn on sound
             </button>
-            <button type="button" onClick={leaveCall} style={{ ...controlButtonStyle(false), background: "#dc2626", color: "#fff" }}>
-              Leave
-            </button>
+          )}
+
+          {status === "connected" && <span className={styles.tag}>{otherLabel}</span>}
+
+          {captionsOn && (remoteCaption || myCaption) && (
+            <div className={styles.captions}>
+              {remoteCaption && <span className={styles.capRemote}>{remoteCaption}</span>}
+              {myCaption && <span className={styles.capMine}>{myCaption}</span>}
+            </div>
+          )}
+
+          <div className={styles.self}>
+            <video ref={localVideoRef} autoPlay playsInline muted />
+            {!camOn && !screenSharing && <div className={styles.camOff}>Camera off</div>}
+            <span className={styles.selfTag}>{screenSharing ? "Your screen" : `You · ${roleLabel}`}</span>
           </div>
         </div>
 
         {chatOpen && (
-          <div
-            style={{
-              width: "280px",
-              flexShrink: 0,
-              height: "min(540px, 70vh)",
-              background: "rgba(255,255,255,0.06)",
-              border: "1px solid rgba(255,255,255,0.14)",
-              borderRadius: "16px",
-              display: "flex",
-              flexDirection: "column",
-              overflow: "hidden",
-            }}
-          >
-            <div
-              style={{
-                padding: "12px 14px",
-                borderBottom: "1px solid rgba(255,255,255,0.1)",
-                fontSize: "12px",
-                fontWeight: 800,
-                color: "#fff",
-                letterSpacing: "0.02em",
-                textTransform: "uppercase",
-              }}
-            >
-              Chat
+          <aside className={styles.chat} aria-label="Chat">
+            <div className={styles.chatHead}>
+              <span>Chat</span>
+              <button type="button" onClick={() => setChatOpen(false)} aria-label="Close chat">
+                ×
+              </button>
             </div>
-
-            <div style={{ flex: 1, overflowY: "auto", padding: "10px 12px", display: "flex", flexDirection: "column", gap: "8px" }}>
+            <div className={styles.chatBody}>
               {chatMessages.length === 0 ? (
-                <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.5)", margin: 0 }}>No messages yet.</p>
+                <p className={styles.chatEmpty}>No messages yet. Say hello 👋</p>
               ) : (
                 chatMessages.map((m, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      alignSelf: m.mine ? "flex-end" : "flex-start",
-                      maxWidth: "85%",
-                      background: m.mine ? "#01617a" : "rgba(255,255,255,0.1)",
-                      color: "#fff",
-                      padding: "7px 10px",
-                      borderRadius: "12px",
-                      fontSize: "12px",
-                      lineHeight: 1.4,
-                      wordBreak: "break-word",
-                    }}
-                  >
+                  <div key={i} className={`${styles.msg} ${m.mine ? styles.msgMine : ""}`}>
                     {m.text}
                   </div>
                 ))
               )}
               <div ref={chatEndRef} />
             </div>
-
             <form
+              className={styles.chatForm}
               onSubmit={(e) => {
                 e.preventDefault();
                 sendChat();
               }}
-              style={{ display: "flex", gap: "6px", padding: "10px", borderTop: "1px solid rgba(255,255,255,0.1)" }}
             >
-              <input
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                placeholder="Type a message…"
-                style={{
-                  flex: 1,
-                  padding: "8px 10px",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(255,255,255,0.2)",
-                  background: "rgba(255,255,255,0.08)",
-                  color: "#fff",
-                  fontSize: "12px",
-                }}
-              />
-              <button
-                type="submit"
-                disabled={!chatInput.trim()}
-                style={{
-                  padding: "8px 12px",
-                  borderRadius: "8px",
-                  border: "none",
-                  background: "#01617a",
-                  color: "#fff",
-                  fontWeight: 700,
-                  fontSize: "12px",
-                  cursor: chatInput.trim() ? "pointer" : "default",
-                  opacity: chatInput.trim() ? 1 : 0.6,
-                }}
-              >
+              <input value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="Type a message…" />
+              <button type="submit" className={styles.send} disabled={!chatInput.trim()}>
                 Send
               </button>
             </form>
-          </div>
+          </aside>
         )}
       </div>
 
+      {error && (
+        <p className={styles.error} role="alert">
+          {error}
+        </p>
+      )}
+
+      <div className={styles.dock}>
+        <div className={styles.dockIn}>
+          <button type="button" onClick={toggleMic} className={`${styles.ctl} ${!micOn ? styles.ctlOff : ""}`} aria-pressed={!micOn}>
+            <CtlIcon name={micOn ? "mic" : "micOff"} />
+            {micOn ? "Mute" : "Unmute"}
+          </button>
+          <button type="button" onClick={toggleCam} className={`${styles.ctl} ${!camOn ? styles.ctlOff : ""}`} aria-pressed={!camOn}>
+            <CtlIcon name={camOn ? "cam" : "camOff"} />
+            {camOn ? "Camera" : "Start cam"}
+          </button>
+          <button type="button" onClick={toggleCaptions} className={`${styles.ctl} ${captionsOn ? styles.ctlOn : ""}`} aria-pressed={captionsOn}>
+            <CtlIcon name="cc" />
+            Captions
+          </button>
+          <button type="button" onClick={toggleScreenShare} className={`${styles.ctl} ${screenSharing ? styles.ctlOn : ""}`} aria-pressed={screenSharing}>
+            <CtlIcon name="share" />
+            {screenSharing ? "Stop share" : "Share"}
+          </button>
+          <button type="button" onClick={() => setChatOpen((v) => !v)} className={`${styles.ctl} ${chatOpen ? styles.ctlOn : ""}`} aria-pressed={chatOpen}>
+            <CtlIcon name="chat" />
+            Chat
+            {unreadChat > 0 && <span className={styles.badge}>{unreadChat}</span>}
+          </button>
+          <button type="button" onClick={leaveCall} className={`${styles.ctl} ${styles.leave}`}>
+            <CtlIcon name="leave" />
+            Leave
+          </button>
+        </div>
+      </div>
+
       {myRole === "employer" && status === "ended" && (
-        <div
-          style={{
-            width: "min(960px, 100%)",
-            background: "rgba(255,255,255,0.06)",
-            border: "1px solid rgba(255,255,255,0.14)",
-            borderRadius: "16px",
-            padding: "20px",
-            display: "flex",
-            flexDirection: "column",
-            gap: "12px",
-          }}
-        >
-          <div style={{ fontSize: "13px", fontWeight: 800, color: "#fff" }}>Interview feedback</div>
+        <section className={styles.feedback}>
+          <h3>Interview feedback</h3>
           {feedbackSubmitted ? (
-            <p style={{ fontSize: "12.5px", color: "#4ade80", margin: 0 }}>Feedback saved.</p>
+            <p className={styles.ok}>Feedback saved.</p>
           ) : (
             <>
-              <div style={{ display: "flex", gap: "6px" }}>
+              <div className={styles.stars}>
                 {[1, 2, 3, 4, 5].map((n) => (
                   <button
                     key={n}
                     type="button"
                     onClick={() => setFeedbackRating(n)}
                     aria-label={`${n} star${n === 1 ? "" : "s"}`}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      fontSize: "22px",
-                      lineHeight: 1,
-                      cursor: "pointer",
-                      color: n <= feedbackRating ? "#facc15" : "rgba(255,255,255,0.25)",
-                      padding: 0,
-                    }}
+                    className={n <= feedbackRating ? styles.starOn : ""}
                   >
                     ★
                   </button>
                 ))}
               </div>
-              <textarea
-                value={feedbackText}
-                onChange={(e) => setFeedbackText(e.target.value)}
-                placeholder="Notes on this candidate…"
-                rows={3}
-                style={{
-                  padding: "10px 12px",
-                  borderRadius: "10px",
-                  border: "1px solid rgba(255,255,255,0.2)",
-                  background: "rgba(255,255,255,0.08)",
-                  color: "#fff",
-                  fontSize: "12.5px",
-                  resize: "vertical",
-                  fontFamily: "inherit",
-                }}
-              />
+              <textarea value={feedbackText} onChange={(e) => setFeedbackText(e.target.value)} placeholder="Notes on this candidate…" rows={3} />
               {feedbackError && (
-                <p style={{ fontSize: "12px", color: "#fca5a5", margin: 0 }} role="alert">
-                  {feedbackError}
+                <p className={styles.fbErr} role="alert">
+                  {feedbackError}{" "}
+                  {feedbackNeedsLogin && (
+                    <a href="/login?role=employer" target="_blank" rel="noreferrer">
+                      Log in
+                    </a>
+                  )}
                 </p>
               )}
               <button
                 type="button"
                 onClick={submitFeedback}
                 disabled={feedbackSubmitting || (!feedbackRating && !feedbackText.trim())}
-                style={{
-                  alignSelf: "flex-start",
-                  padding: "9px 16px",
-                  borderRadius: "9px",
-                  border: "none",
-                  background: "#01617a",
-                  color: "#fff",
-                  fontWeight: 700,
-                  fontSize: "12.5px",
-                  cursor: feedbackSubmitting ? "default" : "pointer",
-                  opacity: feedbackSubmitting || (!feedbackRating && !feedbackText.trim()) ? 0.6 : 1,
-                }}
+                className={styles.primary}
               >
-                {feedbackSubmitting ? "Saving…" : "Submit Feedback"}
+                {feedbackSubmitting ? "Saving…" : "Submit feedback"}
               </button>
             </>
           )}
-        </div>
+        </section>
       )}
     </div>
+  );
+}
+
+type IconName = "mic" | "micOff" | "cam" | "camOff" | "cc" | "share" | "chat" | "leave";
+
+function CtlIcon({ name }: { name: IconName }) {
+  const paths: Record<IconName, React.ReactNode> = {
+    mic: (
+      <>
+        <rect x="9" y="3" width="6" height="11" rx="3" />
+        <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+      </>
+    ),
+    micOff: (
+      <>
+        <path d="M3 3l18 18" />
+        <path d="M9 9v2a3 3 0 0 0 5 2.2M15 9.5V6a3 3 0 0 0-5.7-1.3" />
+        <path d="M5 11a7 7 0 0 0 11.2 5.6M19 11a7 7 0 0 1-.5 2.6M12 18v3" />
+      </>
+    ),
+    cam: (
+      <>
+        <rect x="3" y="6" width="13" height="12" rx="2.5" />
+        <path d="M16 10l5-3v10l-5-3" />
+      </>
+    ),
+    camOff: (
+      <>
+        <path d="M3 3l18 18" />
+        <path d="M7 6h6.5A2.5 2.5 0 0 1 16 8.5V12M16 15.5V16a2 2 0 0 1-2 2H5.5A2.5 2.5 0 0 1 3 15.5v-7" />
+        <path d="M16 10l5-3v10l-3-1.8" />
+      </>
+    ),
+    cc: (
+      <>
+        <rect x="3" y="5" width="18" height="14" rx="3" />
+        <path d="M10 10.5a2 2 0 1 0 0 3M16 10.5a2 2 0 1 0 0 3" />
+      </>
+    ),
+    share: (
+      <>
+        <rect x="3" y="4" width="18" height="12" rx="2" />
+        <path d="M8 20h8M12 16v4M9.5 10.5L12 8l2.5 2.5M12 8v5" />
+      </>
+    ),
+    chat: <path d="M4 5h16v11H9l-5 4V5z" />,
+    leave: <path d="M4 15c4-4 12-4 16 0l-2.5 2.5-3-1.5v-2.5a9 9 0 0 0-5 0V16l-3 1.5L4 15z" />,
+  };
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {paths[name]}
+    </svg>
   );
 }
 
@@ -1294,17 +1074,4 @@ function formatDuration(totalSeconds: number): string {
     .padStart(2, "0");
   const seconds = (totalSeconds % 60).toString().padStart(2, "0");
   return `${minutes}:${seconds}`;
-}
-
-function controlButtonStyle(active: boolean): CSSProperties {
-  return {
-    padding: "10px 18px",
-    borderRadius: "10px",
-    border: "1px solid rgba(255,255,255,0.2)",
-    background: active ? "rgba(8,145,178,0.3)" : "rgba(255,255,255,0.08)",
-    color: "#fff",
-    fontWeight: 700,
-    fontSize: "13px",
-    cursor: "pointer",
-  };
 }

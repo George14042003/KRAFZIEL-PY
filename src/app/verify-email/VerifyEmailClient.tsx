@@ -4,6 +4,9 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AuthShell } from "@/components/auth/AuthShell";
+import s from "@/components/auth/AuthShell.module.css";
+import { CheckIcon } from "@/components/auth/icons";
+import aurora from "@/components/aurora/aurora.module.css";
 import { verifyEmail, type AuthUser } from "@/lib/auth";
 
 const FEATURES = [
@@ -41,73 +44,42 @@ export function VerifyEmailClient() {
   }, [token]);
 
   return (
-    <AuthShell headline="Confirm your email" subhead="One more step to activate your account." features={FEATURES}>
-      <div
-        style={{
-          background: "#fff",
-          borderRadius: "28px",
-          padding: "36px",
-          boxShadow: "0 25px 60px rgba(0,0,0,.35)",
-          display: "flex",
-          flexDirection: "column",
-          gap: "16px",
-          textAlign: "center",
-          alignItems: "center",
-        }}
-      >
-        {status === "verifying" && (
-          <p style={{ fontSize: "13px", color: "#64748b", margin: 0 }}>Confirming your email…</p>
-        )}
+    <AuthShell headline="Confirm your email" subhead="One more step to activate your account." features={FEATURES} centered>
+      {status === "verifying" && (
+        <>
+          <div className={aurora.spinner} aria-hidden="true" style={{ width: 28, height: 28 }} />
+          <p className={s.centerText}>Confirming your email…</p>
+        </>
+      )}
 
-        {status === "success" && (
-          <>
-            <div
-              style={{
-                width: "48px",
-                height: "48px",
-                borderRadius: "50%",
-                background: "#e0f2fe",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "22px",
-              }}
-            >
-              ✅
-            </div>
-            <h2 style={{ fontSize: "20px", fontWeight: 800, color: "#0f172a", margin: 0 }}>Email confirmed</h2>
-            <p style={{ fontSize: "13px", color: "#64748b", margin: 0 }}>
-              {user ? `You're all set, ${user.full_name.split(" ")[0]}.` : "You're all set."} You can now sign in.
-            </p>
-            <Link
-              href="/login"
-              style={{
-                display: "inline-block",
-                marginTop: "8px",
-                padding: "12px 24px",
-                background: "#01617a",
-                color: "#fff",
-                borderRadius: "12px",
-                fontWeight: 700,
-                fontSize: "13px",
-                textDecoration: "none",
-              }}
-            >
-              Go to sign in
-            </Link>
-          </>
-        )}
+      {status === "success" && (
+        <>
+          <div className={s.iconCircle} aria-hidden="true">
+            <CheckIcon size={24} />
+          </div>
+          <h2 className={s.title} style={{ margin: 0 }}>
+            Email confirmed
+          </h2>
+          <p className={s.centerText}>
+            {user ? `You're all set, ${user.full_name.split(" ")[0]}.` : "You're all set."} You can now sign in.
+          </p>
+          <Link href="/login" className={`${aurora.btn} ${aurora.btnAccent}`}>
+            Go to sign in
+          </Link>
+        </>
+      )}
 
-        {status === "error" && (
-          <>
-            <h2 style={{ fontSize: "20px", fontWeight: 800, color: "#0f172a", margin: 0 }}>Link invalid or expired</h2>
-            <p style={{ fontSize: "13px", color: "#64748b", margin: 0 }}>{error}</p>
-            <Link href="/login" style={{ fontSize: "12px", fontWeight: 700, color: "#01617a", marginTop: "8px" }}>
-              Back to sign in
-            </Link>
-          </>
-        )}
-      </div>
+      {status === "error" && (
+        <>
+          <h2 className={s.title} style={{ margin: 0 }}>
+            Link invalid or expired
+          </h2>
+          <p className={s.err}>{error}</p>
+          <Link href="/login" className={s.link}>
+            Back to sign in
+          </Link>
+        </>
+      )}
     </AuthShell>
   );
 }

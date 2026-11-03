@@ -1,0 +1,235 @@
+.muted {
+  color: var(--text-3);
+  font-size: 13px;
+  margin-top: 4px;
+}
+.error {
+  font-size: 13px;
+  color: #fb7185;
+  margin: 0;
+}
+.ok {
+  font-size: 13px;
+  color: #0a9b5a;
+}
+.sub {
+  color: var(--text-3);
+  font-size: 12px;
+}
+.tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(127, 127, 127, 0.14);
+  align-self: flex-start;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.tab,
+.tabOn {
+  border: 0;
+  background: transparent;
+  padding: 8px 18px;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.tabOn {
+  background: #0066ff;
+  color: #fff;
+}
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+.stat {
+  border-radius: 22px;
+  padding: 20px;
+  min-width: 0;
+}
+.statLabel {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-4);
+}
+.statValue {
+  font-size: 28px;
+  font-weight: 700;
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+}
+.panel {
+  border-radius: 24px;
+  padding: 20px;
+  min-width: 0;
+}
+.setupTop {
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.planHead {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.inline {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.inline input,
+.table input,
+.assign select,
+.assign input {
+  min-height: 40px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(127, 127, 127, 0.35);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.table input {
+  max-width: 150px;
+}
+.table input:disabled,
+.assign select:disabled,
+.assign input:disabled {
+  opacity: 0.5;
+}
+.tableWrap {
+  overflow-x: auto;
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.table th,
+.table td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(127, 127, 127, 0.18);
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.table thead th {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-4);
+}
+.pill {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: capitalize;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(127, 127, 127, 0.18);
+  color: var(--text-3);
+}
+td > .pill:first-child {
+  margin-left: 0;
+}
+.s_active,
+.s_paid {
+  background: rgba(0, 160, 90, 0.16);
+  color: #0a9b5a;
+}
+.s_past_due,
+.s_failed,
+.s_incomplete {
+  background: rgba(251, 113, 133, 0.18);
+  color: #e11d48;
+}
+.full {
+  color: #e11d48;
+  font-weight: 700;
+}
+.btn,
+.btnPrimary {
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(127, 127, 127, 0.4);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+.btnPrimary {
+  background: #0066ff;
+  border-color: #0066ff;
+  color: #fff;
+}
+.btn:disabled,
+.btnPrimary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.assignCell {
+  background: rgba(127, 127, 127, 0.08);
+}
+.assign {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr)) auto;
+  gap: 12px;
+  align-items: end;
+  white-space: normal;
+}
+.assign label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+@media (max-width: 1000px) {
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .planHead {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .assign {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 560px) {
+  .stats {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .assign {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .setupTop .inline,
+  .actions button {
+    width: 100%;
+  }
+}

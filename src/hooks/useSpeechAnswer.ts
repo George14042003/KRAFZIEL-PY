@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 // The Web Speech API has no official TS lib types; keep this loosely typed.
 type SpeechRecognitionInstance = {
@@ -148,6 +148,25 @@ export function useSpeechAnswer() {
     setListening(false);
     return { durationSeconds };
   }, []);
+
+  // Release the mic and speech output if the page goes away mid-question.
+  useEffect(
+    () => () => {
+      listeningRef.current = false;
+      if (recognitionRef.current) {
+        recognitionRef.current.onend = null;
+        try {
+          recognitionRef.current.stop();
+        } catch {
+          // already stopped
+        }
+        recognitionRef.current = null;
+      }
+      if (typeof window !== "undefined") window.speechSynthesis?.cancel();
+      if (mouthCloseTimerRef.current) clearTimeout(mouthCloseTimerRef.current);
+    },
+    []
+  );
 
   return { supported, speechSupported, listening, speaking, mouthShape, speak, startListening, stopListening };
 }

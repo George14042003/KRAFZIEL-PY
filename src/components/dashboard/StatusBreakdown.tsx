@@ -5,7 +5,7 @@ const ORDER: CandidateStatus[] = ["pending", "reviewed", "interviewing", "offere
 const COLORS: Record<CandidateStatus, string> = {
   pending: "#f59e0b",
   reviewed: "#0ea5e9",
-  interviewing: "#8b5cf6",
+  interviewing: "#00B4FF",
   offered: "#dc2626",
   hired: "#22c55e",
   rejected: "#64748b",

@@ -1,12 +1,23 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { AuroraPageHeader } from "@/components/aurora/AuroraPageHeader";
+import styles from "@/components/aurora/aurora.module.css";
 import { CANDIDATE_NAV, DashboardShell, EMPLOYER_NAV } from "@/components/dashboard/DashboardShell";
 import { cardStyle, inputStyle, labelStyle, primaryButtonStyle } from "@/components/dashboard/formStyles";
 import { useSession } from "@/hooks/useSession";
 import { changePassword, updateProfile, type Role } from "@/lib/auth";
 
-export function SettingsClient({ role }: { role: Extract<Role, "employer" | "candidate"> }) {
+export function SettingsClient({
+  role,
+  variant,
+  extra,
+}: {
+  role: Extract<Role, "employer" | "candidate">;
+  variant?: "aurora";
+  /** Extra sections rendered under the account forms (aurora variant). */
+  extra?: ReactNode;
+}) {
   const { user, loading } = useSession(role);
 
   const [fullName, setFullName] = useState(user?.full_name ?? "");
@@ -72,6 +83,91 @@ export function SettingsClient({ role }: { role: Extract<Role, "employer" | "can
     } finally {
       setSavingPassword(false);
     }
+  }
+
+  if (variant === "aurora") {
+    const initials =
+      user.full_name
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((w) => w[0]?.toUpperCase())
+        .join("") || "U";
+    const formStyle = { display: "flex", flexDirection: "column", gap: "20px", padding: "32px", borderRadius: "32px", boxSizing: "border-box", alignSelf: "start" } as const;
+    const headStyle = { display: "flex", alignItems: "center", gap: "16px" } as const;
+    const iconCircle = { width: 64, height: 64, borderRadius: "50%", flex: "none", display: "flex", alignItems: "center", justifyContent: "center" } as const;
+    return (
+      <DashboardShell user={user} nav={role === "candidate" ? CANDIDATE_NAV : EMPLOYER_NAV}>
+        <AuroraPageHeader eyebrow="Account" title="Settings" subtitle="Manage your account details and password." />
+
+        <div className={styles.two}>
+          <form onSubmit={handleProfileSubmit} className={styles.glass} style={formStyle}>
+            <div style={headStyle}>
+              <div className={styles.display} style={{ ...iconCircle, background: "var(--violet)", color: "#fff", fontWeight: 700, fontSize: "20px" }}>
+                {initials}
+              </div>
+              <h2 className={styles.display} style={{ fontWeight: 600, fontSize: "22px", margin: 0 }}>Profile</h2>
+            </div>
+
+            <div className={styles.field}>
+              <label className={styles.lbl}>Full Name</label>
+              <input className={styles.inp} value={fullName} onChange={(e) => setFullName(e.target.value)} required />
+            </div>
+            <div className={styles.field}>
+              <label className={styles.lbl}>Email Address</label>
+              <input className={styles.inp} value={user.email} disabled />
+            </div>
+
+            {profileError && (
+              <p style={{ fontSize: "13px", color: "#FB7185", margin: 0 }} role="alert">{profileError}</p>
+            )}
+            {profileMessage && <p style={{ fontSize: "13px", color: "#34D399", margin: 0 }}>{profileMessage}</p>}
+
+            <div>
+              <button type="submit" disabled={savingProfile} className={`${styles.btn} ${styles.btnAccent}`} style={{ opacity: savingProfile ? 0.7 : 1 }}>
+                {savingProfile ? "Saving…" : "Save Profile"}
+              </button>
+            </div>
+          </form>
+
+          <form onSubmit={handlePasswordSubmit} className={styles.glass} style={formStyle}>
+            <div style={headStyle}>
+              <div style={{ ...iconCircle, border: "1.5px dashed var(--line-2)" }}>
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M5 11h14v10H5z M8 11V8a4 4 0 0 1 8 0v3" />
+                </svg>
+              </div>
+              <h2 className={styles.display} style={{ fontWeight: 600, fontSize: "22px", margin: 0 }}>Change Password</h2>
+            </div>
+
+            <div className={styles.field}>
+              <label className={styles.lbl}>Current Password</label>
+              <input className={styles.inp} type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required />
+            </div>
+            <div className={styles.field}>
+              <label className={styles.lbl}>New Password</label>
+              <input className={styles.inp} type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required />
+            </div>
+            <div className={styles.field}>
+              <label className={styles.lbl}>Confirm New Password</label>
+              <input className={styles.inp} type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
+            </div>
+
+            {passwordError && (
+              <p style={{ fontSize: "13px", color: "#FB7185", margin: 0 }} role="alert">{passwordError}</p>
+            )}
+            {passwordMessage && <p style={{ fontSize: "13px", color: "#34D399", margin: 0 }}>{passwordMessage}</p>}
+
+            <div>
+              <button type="submit" disabled={savingPassword} className={`${styles.btn} ${styles.btnLight}`} style={{ opacity: savingPassword ? 0.7 : 1 }}>
+                {savingPassword ? "Updating…" : "Update Password"}
+              </button>
+            </div>
+          </form>
+        </div>
+        {extra}
+      </DashboardShell>
+    );
   }
 
   return (

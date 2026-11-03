@@ -28,7 +28,7 @@ const CONSENT_ITEMS = [
     key: "data_storage_and_retention" as const,
     title: "Data storage & retention",
     body:
-      "I consent to Nextenti storing my application data, resume, and interview records (including " +
+      "I consent to Krafziel storing my application data, resume, and interview records (including " +
       "recordings, transcripts, and the identity snapshot above) for recruitment purposes, in " +
       "accordance with applicable data protection law. I understand I may request access to or " +
       "deletion of this data by contacting the organization I applied to.",
@@ -77,7 +77,7 @@ export function ConsentGate({ onAccept, onDecline }: ConsentGateProps) {
           WebkitBackdropFilter: "blur(22px)",
           border: "1px solid rgba(248, 113, 113, 0.35)",
           borderRadius: "24px",
-          padding: "32px",
+          padding: "clamp(18px, 6vw, 32px)",
           boxShadow: "0 25px 70px rgba(127, 29, 29, 0.35)",
           display: "flex",
           flexDirection: "column",

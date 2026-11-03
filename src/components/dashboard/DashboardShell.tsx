@@ -1,12 +1,15 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useContext, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import styles from "./DashboardShell.module.css";
 import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { logout, type AuthUser } from "@/lib/auth";
+import { AuroraLayoutContext } from "@/components/aurora/AuroraLayoutContext";
+import { AuroraShell } from "@/components/aurora/AuroraShell";
+import { NotificationCenter } from "./NotificationCenter";
 import {
   BriefcaseIcon,
   CalendarIcon,
@@ -44,7 +47,7 @@ export const EMPLOYER_NAV: NavItem[] = [
   { label: "Interviews", href: "/employer/interviews", icon: CalendarIcon },
   { label: "Offers", href: "/employer/offers", icon: BriefcaseIcon },
   { label: "Reports & Analytics", href: "/employer/reports", icon: ChartIcon },
-  { label: "Tutorial", href: "/#tutorial", icon: TutorialIcon },
+  { label: "Tutorial", href: "/employer/tutorial", icon: TutorialIcon },
   { label: "Settings", href: "/employer/settings", icon: SettingsIcon },
 ];
 
@@ -66,7 +69,17 @@ function initialsFor(name: string): string {
   return (first + last).toUpperCase();
 }
 
-export function DashboardShell({ user, children, fitToScreen = false, nav = EMPLOYER_NAV }: DashboardShellProps) {
+/** Employers get the Aurora layout; candidates and super admins keep the sidebar layout. */
+export function DashboardShell(props: DashboardShellProps) {
+  const inLayout = useContext(AuroraLayoutContext);
+  if (inLayout) return <>{props.children}</>;
+  if (props.user.role === "employer" && (props.nav ?? EMPLOYER_NAV) === EMPLOYER_NAV) {
+    return <AuroraShell user={props.user}>{props.children}</AuroraShell>;
+  }
+  return <SidebarShell {...props} />;
+}
+
+function SidebarShell({ user, children, fitToScreen = false, nav = EMPLOYER_NAV }: DashboardShellProps) {
   const router = useRouter();
   const pathname = usePathname();
 
@@ -81,7 +94,7 @@ export function DashboardShell({ user, children, fitToScreen = false, nav = EMPL
         <Link href="/" className={styles.sidebarBrand} title="Go to main website">
           <Logo size={30} radius={8} />
           <div className={styles.sidebarBrandLockup}>
-            <span className={styles.sidebarBrandName}>Nextenti</span>
+            <span className={styles.sidebarBrandName}>Krafziel</span>
             <span className={styles.sidebarBrandTagline}>Talent Flow</span>
           </div>
         </Link>
@@ -128,7 +141,7 @@ export function DashboardShell({ user, children, fitToScreen = false, nav = EMPL
         <header className={styles.header}>
           <Link href="/" className={styles.mobileBrand} title="Go to main website">
             <Logo size={26} radius={7} />
-            <span className={styles.brandName}>Nextenti</span>
+            <span className={styles.brandName}>Krafziel</span>
           </Link>
 
           <div className={styles.userMenu}>
@@ -142,6 +155,7 @@ export function DashboardShell({ user, children, fitToScreen = false, nav = EMPL
               <HomeIcon size={14} />
               <span className={styles.homeButtonLabel}>Main Site</span>
             </Link>
+            {user.role === "employer" && <NotificationCenter userId={user.id} />}
             <ThemeToggle />
             <button type="button" className={styles.logoutButton} onClick={handleLogout}>
               Log out

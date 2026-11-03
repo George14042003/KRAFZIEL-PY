@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { CANDIDATE_NAV, DashboardShell } from "@/components/dashboard/DashboardShell";
-import { cardStyle } from "@/components/dashboard/formStyles";
+import aurora from "@/components/aurora/aurora.module.css";
+import { AuroraLoading } from "@/components/aurora/AuroraLoading";
+import { AuroraPageHeader } from "@/components/aurora/AuroraPageHeader";
 import { useSession } from "@/hooks/useSession";
 import { getMyPortal, type PortalInterview } from "@/lib/candidates";
+import s from "../candidate.module.css";
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
@@ -16,22 +18,22 @@ const SCORE_DIMENSIONS: {
   label: string;
   color: string;
 }[] = [
-  { key: "communication", label: "Communication", color: "#0ea5e9" },
-  { key: "problem_solving", label: "Problem Solving", color: "#8b5cf6" },
-  { key: "culture_fit", label: "Culture Fit", color: "#22c55e" },
-  { key: "keyword_relevance", label: "Answer Relevance", color: "#f59e0b" },
-  { key: "confidence", label: "Speaking Confidence", color: "#ec4899" },
+  { key: "communication", label: "Communication", color: "#38BDF8" },
+  { key: "problem_solving", label: "Problem Solving", color: "#00B4FF" },
+  { key: "culture_fit", label: "Culture Fit", color: "#34D399" },
+  { key: "keyword_relevance", label: "Answer Relevance", color: "#FFB020" },
+  { key: "confidence", label: "Speaking Confidence", color: "#FB7185" },
 ];
 
 function ScoreBar({ label, score, color }: { label: string; score: number; color: string }) {
   return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", marginBottom: "3px" }}>
-        <span style={{ color: "#475569", fontWeight: 600 }}>{label}</span>
-        <span style={{ color: "#0f172a", fontWeight: 800 }}>{score}/10</span>
+    <div className={s.scoreRow}>
+      <div className={s.scoreTop}>
+        <span>{label}</span>
+        <b>{score}/10</b>
       </div>
-      <div style={{ height: "6px", borderRadius: "999px", background: "#e2e8f0", overflow: "hidden" }}>
-        <div style={{ height: "100%", width: `${(score / 10) * 100}%`, background: color, borderRadius: "999px" }} />
+      <div className={aurora.bar} style={{ height: 6 }}>
+        <i style={{ width: `${(score / 10) * 100}%`, background: color }} />
       </div>
     </div>
   );
@@ -41,73 +43,45 @@ function ScorecardCard({ interview }: { interview: PortalInterview }) {
   const evaluation = interview.ai_evaluation;
 
   return (
-    <div style={{ ...cardStyle, display: "flex", flexDirection: "column", gap: "14px" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
+    <div className={`${aurora.glass} ${aurora.card} ${s.job}`}>
+      <div className={s.cardHead}>
         <div>
-          <span style={{ fontSize: "14px", fontWeight: 800, color: "#0f172a" }}>Bot Interview Scorecard</span>
-          <div style={{ fontSize: "12px", color: "#64748b", marginTop: "2px" }}>
+          <div className={s.jobTitle} style={{ fontSize: 18 }}>
+            Bot Interview Scorecard
+          </div>
+          <div className={s.jobMeta}>
             {formatDate(interview.scheduled_at)} · with {interview.interviewer_name}
           </div>
         </div>
         {evaluation && (
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              width: "56px",
-              height: "56px",
-              borderRadius: "50%",
-              background: "linear-gradient(135deg, #0e5266, #157a8f)",
-              color: "#fff",
-              flexShrink: 0,
-            }}
-          >
-            <span style={{ fontSize: "18px", fontWeight: 800, lineHeight: 1 }}>{evaluation.overall}</span>
-            <span style={{ fontSize: "9px", opacity: 0.85 }}>/ 10</span>
+          <div className={s.score}>
+            <b>{evaluation.overall}</b>
+            <small>/ 10</small>
           </div>
         )}
       </div>
 
       {evaluation ? (
         <>
-          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+          <div className={s.col} style={{ gap: 14 }}>
             {SCORE_DIMENSIONS.filter((d) => typeof evaluation[d.key] === "number").map((d) => (
               <ScoreBar key={d.key} label={d.label} score={evaluation[d.key] as number} color={d.color} />
             ))}
           </div>
-          <p style={{ fontSize: "13px", color: "#334155", lineHeight: 1.6, margin: 0, borderTop: "1px solid #e2e8f0", paddingTop: "12px" }}>
-            {evaluation.summary}
-          </p>
+          <p className={s.summary}>{evaluation.summary}</p>
         </>
       ) : interview.status === "completed" ? (
-        <p style={{ fontSize: "12px", color: "#94a3b8", margin: 0 }}>
-          This interview was submitted, but a scorecard isn&apos;t available for it yet.
-        </p>
+        <p className={s.muted}>Your answers were submitted. Your scorecard is being generated and will appear here shortly. Refresh in a minute.</p>
       ) : (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
-          <p style={{ fontSize: "12px", color: "#94a3b8", margin: 0 }}>
+        <div className={s.cardHead}>
+          <p className={s.muted} style={{ flex: "1 1 220px" }}>
             {interview.interview_type === "bot"
               ? "Not attempted yet — your scorecard will show up here once you complete it."
               : "Not completed yet — your scorecard will show up here after the interview."}
           </p>
           {interview.interview_type === "bot" && (
-            <Link
-              href={`/bot-interview/${interview.id}`}
-              target="_blank"
-              style={{
-                padding: "7px 14px",
-                background: "#01617a",
-                color: "#fff",
-                borderRadius: "10px",
-                fontWeight: 700,
-                fontSize: "12px",
-                textDecoration: "none",
-                whiteSpace: "nowrap",
-              }}
-            >
-              Take Interview
+            <Link href={`/bot-interview/${interview.id}`} target="_blank" className={`${aurora.btn} ${aurora.btnAccent} ${aurora.btnSm}`}>
+              Join the interview
             </Link>
           )}
         </div>
@@ -132,50 +106,38 @@ export function ScorecardsClient() {
       .finally(() => setDataLoading(false));
   }, [user]);
 
-  if (loading || !user) {
-    return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-secondary)", fontSize: "14px" }}>
-        Loading…
-      </div>
-    );
-  }
+  if (loading || !user) return <AuroraLoading />;
 
   return (
-    <DashboardShell user={user} nav={CANDIDATE_NAV}>
-      <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-        <div>
-          <h1 style={{ fontSize: "20px", fontWeight: 800, color: "var(--text-primary)", margin: 0, letterSpacing: "-0.01em" }}>
-            Scorecards
-          </h1>
-          <p style={{ fontSize: "12px", color: "var(--text-tertiary)", margin: "2px 0 0" }}>
-            AI-generated feedback from your bot and video interviews.
+    <>
+      <AuroraPageHeader
+        eyebrow="Feedback"
+        title="Scorecards"
+        subtitle="AI-generated feedback from your bot and video interviews."
+      />
+
+      {error && (
+        <p className={s.error} role="alert">
+          {error}
+        </p>
+      )}
+
+      {dataLoading ? (
+        <p className={s.muted}>Loading…</p>
+      ) : interviews.length === 0 ? (
+        <div className={`${aurora.glass} ${aurora.card} ${s.emptyCard}`}>
+          <span className={s.emptyTitle}>No scorecards yet</span>
+          <p className={s.emptyText}>
+            No bot or video interviews yet. Once you&apos;re scheduled for one, your scorecard will show up here after you complete it.
           </p>
         </div>
-
-        {error && (
-          <p style={{ fontSize: "13px", color: "#fecaca", margin: 0 }} role="alert">
-            {error}
-          </p>
-        )}
-
-        {dataLoading ? (
-          <div style={cardStyle}>
-            <p style={{ fontSize: "12px", color: "#94a3b8", margin: 0 }}>Loading…</p>
-          </div>
-        ) : interviews.length === 0 ? (
-          <div style={{ ...cardStyle, textAlign: "center", padding: "40px 24px" }}>
-            <p style={{ fontSize: "13px", color: "#64748b", margin: 0 }}>
-              No bot or video interviews yet. Once you&apos;re scheduled for one, your scorecard will show up here after you complete it.
-            </p>
-          </div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-            {interviews.map((interview) => (
-              <ScorecardCard key={interview.id} interview={interview} />
-            ))}
-          </div>
-        )}
-      </div>
-    </DashboardShell>
+      ) : (
+        <div className={s.jobGrid}>
+          {interviews.map((interview) => (
+            <ScorecardCard key={interview.id} interview={interview} />
+          ))}
+        </div>
+      )}
+    </>
   );
 }

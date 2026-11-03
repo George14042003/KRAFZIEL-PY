@@ -16,6 +16,13 @@ type SessionState = {
   loading: boolean;
 };
 
+/** Login URL that returns the visitor to the page they were on (same-site path only). */
+function loginUrl(role: Role): string {
+  const next = encodeURIComponent(window.location.pathname + window.location.search);
+  const roleParam = role === "employer" || role === "candidate" ? `role=${role}&` : "";
+  return `/login?${roleParam}next=${next}`;
+}
+
 export function useSession(requiredRole: Role): SessionState {
   const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -26,7 +33,7 @@ export function useSession(requiredRole: Role): SessionState {
     const storedUser = getStoredUser();
 
     if (!token || !storedUser) {
-      router.replace("/login");
+      router.replace(loginUrl(requiredRole));
       return;
     }
 
@@ -46,9 +53,11 @@ export function useSession(requiredRole: Role): SessionState {
 
     fetchCurrentUser(token)
       .then((freshUser) => setUser(freshUser))
-      .catch(() => {
+      .catch((err: { status?: number }) => {
+        // Only a rejected token ends the session; network errors and 5xx keep it.
+        if (err?.status !== 401 && err?.status !== 403) return;
         logout();
-        router.replace("/login");
+        router.replace(loginUrl(requiredRole));
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

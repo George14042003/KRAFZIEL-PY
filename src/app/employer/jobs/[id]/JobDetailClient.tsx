@@ -3,16 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
+import { AuroraPageHeader } from "@/components/aurora/AuroraPageHeader";
+import styles from "@/components/aurora/aurora.module.css";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
-import { StatusBadge } from "@/components/dashboard/StatusBadge";
-import {
-  cardStyle,
-  dangerButtonStyle,
-  inputStyle,
-  labelStyle,
-  primaryButtonStyle,
-  secondaryButtonStyle,
-} from "@/components/dashboard/formStyles";
 import { useSession } from "@/hooks/useSession";
 import { listCandidates, type Candidate } from "@/lib/candidates";
 import {
@@ -27,7 +20,10 @@ import {
   type JobApplication,
   type JobApplicationStatus,
   type JobStatus,
+  experienceLabel,
 } from "@/lib/jobs";
+import { ApplicationResumePanel, PortfolioBadge } from "@/components/applications/ApplicationResume";
+import { AuroraLoading, JobStatusChip } from "../JobStatusChip";
 
 const EMPLOYMENT_TYPES: EmploymentType[] = ["full_time", "part_time", "contract", "internship"];
 const JOB_STATUSES: JobStatus[] = ["draft", "open", "closed", "filled"];
@@ -41,6 +37,8 @@ const APPLICATION_STATUSES: JobApplicationStatus[] = [
   "rejected",
   "withdrawn",
 ];
+
+const grid2 = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 20 } as const;
 
 function labelize(value: string): string {
   return value
@@ -72,11 +70,7 @@ export function JobDetailClient({ jobId }: { jobId: string }) {
   }, [user, jobId]);
 
   if (loading || !user) {
-    return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-secondary)", fontSize: "14px" }}>
-        Loading…
-      </div>
-    );
+    return <AuroraLoading />;
   }
 
   async function handleStatusChange(status: JobStatus) {
@@ -92,94 +86,106 @@ export function JobDetailClient({ jobId }: { jobId: string }) {
     router.push("/employer/jobs");
   }
 
+  const meta = job ? [job.department, job.location, labelize(job.employment_type)].filter(Boolean).join(" · ") : "";
+
   return (
     <DashboardShell user={user}>
-      <div style={{ maxWidth: "820px", margin: "0 auto" }}>
-        <Link href="/employer/jobs" style={{ fontSize: "12px", color: "var(--text-secondary)", textDecoration: "none" }}>
-          &larr; Back to jobs
-        </Link>
-
-        {dataLoading && (
-          <div style={{ color: "var(--text-tertiary)", fontSize: "13px", marginTop: "16px" }}>Loading…</div>
-        )}
-
-        {loadError && (
-          <div style={{ ...cardStyle, marginTop: "16px" }}>
-            <p style={{ fontSize: "13px", color: "#dc2626", margin: 0 }} role="alert">
-              {loadError}
-            </p>
-          </div>
-        )}
-
-        {job && (
-          <div style={{ display: "flex", gap: "6px", marginTop: "16px" }}>
-            {(
-              [
-                { key: "overview", label: "Overview" },
-                { key: "applicants", label: `Applicants (${applications.length})` },
-              ] as const
-            ).map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setActiveTab(tab.key)}
-                style={{
-                  padding: "8px 16px",
-                  borderRadius: "10px",
-                  border: "none",
-                  fontWeight: 700,
-                  fontSize: "13px",
-                  cursor: "pointer",
-                  background: activeTab === tab.key ? "#fff" : "var(--chrome-surface)",
-                  color: activeTab === tab.key ? "#0f172a" : "var(--text-secondary)",
-                }}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {job && activeTab === "overview" && !editing && (
-          <div className="fade-in" style={{ ...cardStyle, marginTop: "12px", display: "flex", flexDirection: "column", gap: "14px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px", flexWrap: "wrap" }}>
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px" }}>
-                  <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#0f172a", margin: 0 }}>{job.title}</h1>
-                  <StatusBadge status={job.status} />
-                </div>
-                <p style={{ fontSize: "13px", color: "#64748b", margin: 0 }}>
-                  {[job.department, job.location, labelize(job.employment_type)].filter(Boolean).join(" · ")}
-                </p>
-                {(job.salary_min || job.salary_max) && (
-                  <p style={{ fontSize: "12px", color: "#94a3b8", margin: "4px 0 0" }}>
-                    {job.salary_min ? job.salary_min.toLocaleString() : "?"} &ndash;{" "}
-                    {job.salary_max ? job.salary_max.toLocaleString() : "?"}
-                  </p>
-                )}
-                {job.created_by_name && (
-                  <p style={{ fontSize: "11px", color: "#94a3b8", margin: "4px 0 0" }}>Posted by {job.created_by_name}</p>
-                )}
-              </div>
-              <div style={{ display: "flex", gap: "8px" }}>
-                <button type="button" style={secondaryButtonStyle} onClick={() => setEditing(true)}>
+      {job ? (
+        <AuroraPageHeader
+          eyebrow="Job"
+          title={job.title}
+          subtitle={
+            <span style={{ display: "inline-flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
+              <JobStatusChip status={job.status} />
+              <span>{meta}</span>
+            </span>
+          }
+          actions={
+            <>
+              <Link href="/employer/jobs" className={`${styles.btn} ${styles.btnGlass}`}>
+                &larr; Back to jobs
+              </Link>
+              {activeTab === "overview" && !editing && (
+                <button type="button" className={`${styles.btn} ${styles.btnLight}`} onClick={() => setEditing(true)}>
                   Edit
                 </button>
-                {job.created_by_email === user.email && (
-                  <button type="button" style={dangerButtonStyle} onClick={handleDelete}>
-                    Delete
-                  </button>
-                )}
-              </div>
-            </div>
+              )}
+              {job.created_by_email === user.email && (
+                <button type="button" className={`${styles.btn} ${styles.btnDanger}`} onClick={handleDelete}>
+                  Delete
+                </button>
+              )}
+            </>
+          }
+        />
+      ) : (
+        <div>
+          <Link href="/employer/jobs" className={`${styles.btn} ${styles.btnGlass}`}>
+            &larr; Back to jobs
+          </Link>
+        </div>
+      )}
 
-            <p style={{ fontSize: "13px", color: "#334155", lineHeight: 1.6, margin: 0, whiteSpace: "pre-wrap" }}>
+      {dataLoading && <div style={{ color: "var(--text-3)", fontSize: 13 }}>Loading…</div>}
+
+      {loadError && (
+        <div className={`${styles.glass} ${styles.cardSm}`}>
+          <p style={{ fontSize: 13, color: "#C4123A", margin: 0 }} role="alert">
+            {loadError}
+          </p>
+        </div>
+      )}
+
+      {job && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {(
+            [
+              { key: "overview", label: "Overview" },
+              { key: "applicants", label: `Applicants (${applications.length})` },
+            ] as const
+          ).map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setActiveTab(tab.key)}
+              className={`${styles.btn} ${styles.btnSm} ${activeTab === tab.key ? styles.btnAccent : styles.btnGlass}`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {job && activeTab === "overview" && !editing && (
+        <div className={styles.two}>
+          <div className={`${styles.glass} ${styles.card}`} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <span className={styles.sideLabel} style={{ padding: 0 }}>Description</span>
+            <p style={{ fontSize: 15, color: "var(--text-2)", lineHeight: 1.65, margin: 0, whiteSpace: "pre-wrap" }}>
               {job.description}
             </p>
+          </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <label style={{ fontSize: "11px", fontWeight: 700, color: "#334155" }}>Status</label>
-              <select value={job.status} onChange={(e) => handleStatusChange(e.target.value as JobStatus)} style={{ ...inputStyle, width: "auto" }}>
+          <div className={`${styles.glass} ${styles.card}`} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            <span className={styles.sideLabel} style={{ padding: 0 }}>Details</span>
+            <DetailRow label="Department" value={job.department || "—"} />
+            <DetailRow label="Location" value={job.location || "—"} />
+            <DetailRow label="Employment type" value={labelize(job.employment_type)} />
+            {(job.salary_min || job.salary_max) && (
+              <DetailRow
+                label="Salary range"
+                value={`${job.salary_min ? job.salary_min.toLocaleString() : "?"} – ${job.salary_max ? job.salary_max.toLocaleString() : "?"}`}
+              />
+            )}
+            {experienceLabel(job.experience_min_years) && <DetailRow label="Experience" value={experienceLabel(job.experience_min_years) as string} />}
+            {job.created_by_name && <DetailRow label="Posted by" value={job.created_by_name} />}
+            <div className={styles.field}>
+              <label className={styles.lbl} htmlFor="job-status">Status</label>
+              <select
+                id="job-status"
+                className={styles.inp}
+                value={job.status}
+                onChange={(e) => handleStatusChange(e.target.value as JobStatus)}
+              >
                 {JOB_STATUSES.map((s) => (
                   <option key={s} value={s}>
                     {labelize(s)}
@@ -188,39 +194,48 @@ export function JobDetailClient({ jobId }: { jobId: string }) {
               </select>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {job && activeTab === "overview" && editing && (
-          <EditJobForm job={job} onCancel={() => setEditing(false)} onSaved={(updated) => { setJob(updated); setEditing(false); }} />
-        )}
+      {job && activeTab === "overview" && editing && (
+        <EditJobForm job={job} onCancel={() => setEditing(false)} onSaved={(updated) => { setJob(updated); setEditing(false); }} />
+      )}
 
-        {job && activeTab === "applicants" && (
-          <div className="fade-in" style={{ marginTop: "12px" }}>
-            <LinkCandidatePanel
-              jobId={job.id}
-              alreadyLinkedIds={applications.map((a) => a.candidate.id)}
-              onLinked={(application) => setApplications((prev) => [application, ...prev])}
-            />
+      {job && activeTab === "applicants" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <LinkCandidatePanel
+            jobId={job.id}
+            alreadyLinkedIds={applications.map((a) => a.candidate.id)}
+            onLinked={(application) => setApplications((prev) => [application, ...prev])}
+          />
 
-            {applications.length === 0 ? (
-              <p style={{ fontSize: "12px", color: "var(--text-tertiary)", marginTop: "12px" }}>No applicants yet.</p>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "16px" }}>
-                {applications.map((application) => (
-                  <ApplicationRow
-                    key={application.id}
-                    application={application}
-                    onUpdated={(updated) =>
-                      setApplications((prev) => prev.map((a) => (a.id === updated.id ? updated : a)))
-                    }
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+          {applications.length === 0 ? (
+            <p style={{ fontSize: 14, color: "var(--text-4)", margin: 0 }}>No applicants yet.</p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {applications.map((application) => (
+                <ApplicationRow
+                  key={application.id}
+                  application={application}
+                  onUpdated={(updated) =>
+                    setApplications((prev) => prev.map((a) => (a.id === updated.id ? updated : a)))
+                  }
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </DashboardShell>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", gap: 16, borderBottom: "1px solid var(--line-soft)", paddingBottom: 12 }}>
+      <span style={{ fontSize: 13, color: "var(--text-3)" }}>{label}</span>
+      <span style={{ fontSize: 14, fontWeight: 600, textAlign: "right" }}>{value}</span>
+    </div>
   );
 }
 
@@ -239,6 +254,7 @@ function EditJobForm({
   const [employmentType, setEmploymentType] = useState<EmploymentType>(job.employment_type);
   const [salaryMin, setSalaryMin] = useState(job.salary_min?.toString() ?? "");
   const [salaryMax, setSalaryMax] = useState(job.salary_max?.toString() ?? "");
+  const [experience, setExperience] = useState(job.experience_min_years?.toString() ?? "");
   const [description, setDescription] = useState(job.description);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -256,6 +272,7 @@ function EditJobForm({
         employment_type: employmentType,
         salary_min: salaryMin ? Number(salaryMin) : null,
         salary_max: salaryMax ? Number(salaryMax) : null,
+        experience_min_years: experience === "" ? null : Number(experience),
       });
       onSaved(updated);
     } catch (err) {
@@ -266,25 +283,29 @@ function EditJobForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="fade-in" style={{ ...cardStyle, marginTop: "12px", display: "flex", flexDirection: "column", gap: "14px" }}>
-      <div>
-        <label style={labelStyle}>Job Title</label>
-        <input required value={title} onChange={(e) => setTitle(e.target.value)} style={inputStyle} />
+    <form
+      onSubmit={handleSubmit}
+      className={`${styles.glass} ${styles.card}`}
+      style={{ maxWidth: 820, width: "100%", padding: 32, display: "flex", flexDirection: "column", gap: 20 }}
+    >
+      <div className={styles.field}>
+        <label className={styles.lbl}>Job Title</label>
+        <input className={styles.inp} required value={title} onChange={(e) => setTitle(e.target.value)} />
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
-        <div>
-          <label style={labelStyle}>Department</label>
-          <input value={department} onChange={(e) => setDepartment(e.target.value)} style={inputStyle} />
+      <div style={grid2}>
+        <div className={styles.field}>
+          <label className={styles.lbl}>Department</label>
+          <input className={styles.inp} value={department} onChange={(e) => setDepartment(e.target.value)} />
         </div>
-        <div>
-          <label style={labelStyle}>Location</label>
-          <input value={location} onChange={(e) => setLocation(e.target.value)} style={inputStyle} />
+        <div className={styles.field}>
+          <label className={styles.lbl}>Location</label>
+          <input className={styles.inp} value={location} onChange={(e) => setLocation(e.target.value)} />
         </div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "14px" }}>
-        <div>
-          <label style={labelStyle}>Employment Type</label>
-          <select value={employmentType} onChange={(e) => setEmploymentType(e.target.value as EmploymentType)} style={inputStyle}>
+      <div style={grid2}>
+        <div className={styles.field}>
+          <label className={styles.lbl}>Employment Type</label>
+          <select className={styles.inp} value={employmentType} onChange={(e) => setEmploymentType(e.target.value as EmploymentType)}>
             {EMPLOYMENT_TYPES.map((t) => (
               <option key={t} value={t}>
                 {labelize(t)}
@@ -292,31 +313,43 @@ function EditJobForm({
             ))}
           </select>
         </div>
-        <div>
-          <label style={labelStyle}>Salary Min</label>
-          <input type="number" min={0} value={salaryMin} onChange={(e) => setSalaryMin(e.target.value)} style={inputStyle} />
+        <div className={styles.field}>
+          <label className={styles.lbl}>Salary Min</label>
+          <input className={styles.inp} type="number" min={0} value={salaryMin} onChange={(e) => setSalaryMin(e.target.value)} />
         </div>
-        <div>
-          <label style={labelStyle}>Salary Max</label>
-          <input type="number" min={0} value={salaryMax} onChange={(e) => setSalaryMax(e.target.value)} style={inputStyle} />
+        <div className={styles.field}>
+          <label className={styles.lbl}>Salary Max</label>
+          <input className={styles.inp} type="number" min={0} value={salaryMax} onChange={(e) => setSalaryMax(e.target.value)} />
         </div>
       </div>
-      <div>
-        <label style={labelStyle}>Description</label>
-        <textarea required value={description} onChange={(e) => setDescription(e.target.value)} rows={6} style={{ ...inputStyle, resize: "vertical" }} />
+      <div className={styles.field}>
+        <label className={styles.lbl} htmlFor="edit-experience">Experience required, in years</label>
+        <input id="edit-experience" className={styles.inp} type="number" min={0} max={50} value={experience} onChange={(e) => setExperience(e.target.value)} />
+        <span style={{ fontSize: 12, color: "var(--text-4)" }}>0 means fresher. Roles asking for more than 8 years allow 5 look-away warnings in the bot interview; all others allow 2.</span>
+      </div>
+      <div className={styles.field}>
+        <label className={styles.lbl}>Description</label>
+        <textarea
+          className={styles.inp}
+          required
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          rows={6}
+          style={{ resize: "vertical", padding: "14px 16px", lineHeight: 1.5 }}
+        />
       </div>
 
       {error && (
-        <p style={{ fontSize: "12px", color: "#dc2626", margin: 0 }} role="alert">
+        <p style={{ fontSize: 13, color: "#C4123A", margin: 0 }} role="alert">
           {error}
         </p>
       )}
 
-      <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
-        <button type="button" style={secondaryButtonStyle} onClick={onCancel}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "flex-end" }}>
+        <button type="button" className={`${styles.btn} ${styles.btnGlass}`} onClick={onCancel}>
           Cancel
         </button>
-        <button type="submit" disabled={submitting} style={{ ...primaryButtonStyle, opacity: submitting ? 0.7 : 1 }}>
+        <button type="submit" disabled={submitting} className={`${styles.btn} ${styles.btnAccent}`}>
           {submitting ? "Saving…" : "Save Changes"}
         </button>
       </div>
@@ -331,31 +364,47 @@ function ApplicationRow({
   application: JobApplication;
   onUpdated: (application: JobApplication) => void;
 }) {
+  const [showResume, setShowResume] = useState(false);
+
   async function handleStatusChange(status: JobApplicationStatus) {
     const updated = await updateApplication(application.id, { status });
     onUpdated(updated);
   }
 
   return (
-    <div style={{ ...cardStyle, display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px", flexWrap: "wrap" }}>
-      <div>
-        <div style={{ fontSize: "13px", fontWeight: 700, color: "#0f172a" }}>{application.candidate.applicant_name}</div>
-        <div style={{ fontSize: "12px", color: "#64748b" }}>{application.candidate.applicant_email}</div>
+    <div
+      className={`${styles.glass} ${styles.cardSm}`}
+      style={{ borderRadius: 28, padding: "20px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}
+    >
+      <div style={{ minWidth: 0, flex: "1 1 260px" }}>
+        <div className={styles.display} style={{ fontSize: 16, fontWeight: 600, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
+          {application.candidate.applicant_name}
+          <PortfolioBadge application={application} />
+        </div>
+        <div style={{ fontSize: 13, color: "var(--text-3)" }}>{application.candidate.applicant_email}</div>
+        {application.resume_data?.total_experience_years != null && (
+          <div style={{ fontSize: 12, color: "var(--text-4)", marginTop: 2 }}>
+            {application.resume_data.total_experience_years === 0 ? "Fresher" : `${application.resume_data.total_experience_years} years experience`} per resume
+          </div>
+        )}
         {application.cover_letter && (
-          <p style={{ fontSize: "12px", color: "#334155", marginTop: "4px", whiteSpace: "pre-wrap" }}>{application.cover_letter}</p>
+          <p style={{ fontSize: 13, color: "var(--text-2)", margin: "8px 0 0", whiteSpace: "pre-wrap" }}>{application.cover_letter}</p>
         )}
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-        <Link
-          href={`/employer/candidates/${application.candidate.id}`}
-          style={{ ...secondaryButtonStyle, padding: "6px 10px", fontSize: "12px", textDecoration: "none" }}
-        >
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
+        {(application.resume_data || application.portfolio_url) && (
+          <button type="button" className={`${styles.btn} ${styles.btnGlass} ${styles.btnSm}`} aria-expanded={showResume} onClick={() => setShowResume((v) => !v)}>
+            {showResume ? "Hide resume" : "View resume"}
+          </button>
+        )}
+        <Link href={`/employer/candidates/${application.candidate.id}`} className={`${styles.btn} ${styles.btnGlass} ${styles.btnSm}`}>
           View Candidate
         </Link>
         <select
+          className={`${styles.chip} ${styles.chipSelect}`}
+          aria-label="Application status"
           value={application.status}
           onChange={(e) => handleStatusChange(e.target.value as JobApplicationStatus)}
-          style={{ ...inputStyle, width: "auto", padding: "6px 10px" }}
         >
           {APPLICATION_STATUSES.map((s) => (
             <option key={s} value={s}>
@@ -364,6 +413,11 @@ function ApplicationRow({
           ))}
         </select>
       </div>
+      {showResume && (
+        <div style={{ flexBasis: "100%", borderTop: "1px solid var(--line-soft)", paddingTop: 16 }}>
+          <ApplicationResumePanel application={application} />
+        </div>
+      )}
     </div>
   );
 }
@@ -412,50 +466,52 @@ function LinkCandidatePanel({
 
   if (!open) {
     return (
-      <button type="button" style={secondaryButtonStyle} onClick={() => setOpen(true)}>
-        + Link Existing Candidate
-      </button>
+      <div>
+        <button type="button" className={`${styles.btn} ${styles.btnGlass}`} onClick={() => setOpen(true)}>
+          + Link Existing Candidate
+        </button>
+      </div>
     );
   }
 
   return (
-    <div style={{ ...cardStyle, display: "flex", flexDirection: "column", gap: "10px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <label style={labelStyle}>Link a candidate already in your pool to this job</label>
-        <button type="button" onClick={() => setOpen(false)} style={{ ...secondaryButtonStyle, padding: "4px 10px", fontSize: "11px" }}>
+    <div className={`${styles.glass} ${styles.card}`} style={{ padding: 24, display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+        <label className={styles.lbl}>Link a candidate already in your pool to this job</label>
+        <button type="button" onClick={() => setOpen(false)} className={`${styles.btn} ${styles.btnGlass} ${styles.btnSm}`}>
           Close
         </button>
       </div>
       <input
+        className={styles.inp}
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         placeholder="Search by name or email…"
-        style={inputStyle}
         autoFocus
       />
       {error && (
-        <p style={{ fontSize: "12px", color: "#dc2626", margin: 0 }} role="alert">
+        <p style={{ fontSize: 13, color: "#C4123A", margin: 0 }} role="alert">
           {error}
         </p>
       )}
-      <div style={{ display: "flex", flexDirection: "column", gap: "4px", maxHeight: "220px", overflowY: "auto" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 280, overflowY: "auto" }}>
         {matches.length === 0 ? (
-          <p style={{ fontSize: "12px", color: "#94a3b8", margin: 0 }}>No matching candidates.</p>
+          <p style={{ fontSize: 13, color: "var(--text-4)", margin: 0 }}>No matching candidates.</p>
         ) : (
           matches.map((c) => (
             <div
               key={c.id}
-              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 10px", borderRadius: "8px", background: "#f8fafc" }}
+              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 14px", borderRadius: 16, background: "var(--fill-soft)" }}
             >
-              <div>
-                <div style={{ fontSize: "12px", fontWeight: 700, color: "#0f172a" }}>{c.applicant_name}</div>
-                <div style={{ fontSize: "11px", color: "#64748b" }}>{c.applicant_email}</div>
+              <div style={{ minWidth: 0 }}>
+                <div className={styles.display} style={{ fontSize: 14, fontWeight: 600 }}>{c.applicant_name}</div>
+                <div style={{ fontSize: 12, color: "var(--text-3)" }}>{c.applicant_email}</div>
               </div>
               <button
                 type="button"
                 disabled={linkingId === c.id}
                 onClick={() => handleLink(c.id)}
-                style={{ ...secondaryButtonStyle, padding: "5px 10px", fontSize: "11px", opacity: linkingId === c.id ? 0.6 : 1 }}
+                className={`${styles.btn} ${styles.btnAccent} ${styles.btnSm}`}
               >
                 {linkingId === c.id ? "Linking…" : "Link"}
               </button>

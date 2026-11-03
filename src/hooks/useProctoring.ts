@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-export type ProctorViolation = "tab_switch" | "window_blur" | "face_not_detected" | "screen_share_stopped";
+export type ProctorViolation = "tab_switch" | "window_blur" | "face_not_detected" | "screen_share_stopped" | "looking_away";
 
 type FaceDetectorLike = {
   detectForVideo: (video: HTMLVideoElement, timestampMs: number) => { detections: unknown[] };
@@ -10,7 +10,7 @@ type FaceDetectorLike = {
 
 const MODEL_ASSET_URL =
   "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite";
-const WASM_BASE_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm";
+const WASM_BASE_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/wasm";
 const MISSED_FACE_THRESHOLD = 5; // consecutive ~1s checks (≈5s) with no face before flagging
 
 // The MediaPipe/TFLite WASM runtime logs a one-time, harmless "which backend
@@ -41,14 +41,20 @@ type UseProctoringOptions = {
   /** Monitoring (tab-switch, face presence) only runs while this is true. */
   active: boolean;
   onViolation: (reason: ProctorViolation) => void;
+  /** When false, a missing face no longer ends the interview here: the look-away warnings handle it instead. */
+  endOnMissingFace?: boolean;
 };
 
-export function useProctoring({ active, onViolation }: UseProctoringOptions) {
+export function useProctoring({ active, onViolation, endOnMissingFace = true }: UseProctoringOptions) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
   const faceDetectorRef = useRef<FaceDetectorLike | null>(null);
   const missedFaceCountRef = useRef(0);
+  const activeRef = useRef(active);
+  useEffect(() => {
+    activeRef.current = active;
+  }, [active]);
 
   const [cameraReady, setCameraReady] = useState(false);
   const [screenReady, setScreenReady] = useState(false);
@@ -60,10 +66,15 @@ export function useProctoring({ active, onViolation }: UseProctoringOptions) {
     setCameraError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 320, height: 240 },
+        video: { width: { ideal: 640 }, height: { ideal: 480 } },
         audio: false,
       });
       cameraStreamRef.current = stream;
+      // Unplugged or revoked mid-interview: a frozen last frame would otherwise keep looking like a face.
+      stream.getVideoTracks()[0]?.addEventListener("ended", () => {
+        setCameraReady(false);
+        if (activeRef.current) onViolation("face_not_detected");
+      });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play().catch(() => {});
@@ -73,7 +84,7 @@ export function useProctoring({ active, onViolation }: UseProctoringOptions) {
       setCameraError("Camera access is required to continue. Please allow camera permission and try again.");
       setCameraReady(false);
     }
-  }, []);
+  }, [onViolation]);
 
   const requestScreenShare = useCallback(async () => {
     setScreenError(null);
@@ -83,7 +94,8 @@ export function useProctoring({ active, onViolation }: UseProctoringOptions) {
       const [track] = stream.getVideoTracks();
       track.addEventListener("ended", () => {
         setScreenReady(false);
-        onViolation("screen_share_stopped");
+        // Before the interview starts, stopping the share only asks for it again; it must not cancel the interview.
+        if (activeRef.current) onViolation("screen_share_stopped");
       });
       setScreenReady(true);
     } catch {
@@ -94,7 +106,7 @@ export function useProctoring({ active, onViolation }: UseProctoringOptions) {
 
   // Lazily load the face-detection model once the camera is live.
   useEffect(() => {
-    if (!cameraReady) return;
+    if (!cameraReady || !endOnMissingFace) return;
     let cancelled = false;
     (async () => {
       try {
@@ -117,7 +129,7 @@ export function useProctoring({ active, onViolation }: UseProctoringOptions) {
     return () => {
       cancelled = true;
     };
-  }, [cameraReady]);
+  }, [cameraReady, endOnMissingFace]);
 
   // Tab-switch / window-blur monitoring.
   useEffect(() => {
@@ -138,7 +150,7 @@ export function useProctoring({ active, onViolation }: UseProctoringOptions) {
 
   // Face-presence polling.
   useEffect(() => {
-    if (!active || !cameraReady || !modelReady) return;
+    if (!active || !cameraReady || !modelReady || !endOnMissingFace) return;
     missedFaceCountRef.current = 0;
     const id = setInterval(() => {
       const detector = faceDetectorRef.current;
@@ -159,7 +171,7 @@ export function useProctoring({ active, onViolation }: UseProctoringOptions) {
       }
     }, 1000);
     return () => clearInterval(id);
-  }, [active, cameraReady, modelReady, onViolation]);
+  }, [active, cameraReady, modelReady, endOnMissingFace, onViolation]);
 
   const stopAll = useCallback(() => {
     cameraStreamRef.current?.getTracks().forEach((t) => t.stop());

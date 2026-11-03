@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { SuperAdminShell } from "@/components/superadmin/SuperAdminShell";
-import { getAdminPalette } from "@/components/superadmin/adminStyles";
-import { useTheme } from "@/contexts/ThemeContext";
+import { AuroraLoading } from "@/components/aurora/AuroraLoading";
+import { AuroraPageHeader } from "@/components/aurora/AuroraPageHeader";
+import { CountUp } from "@/components/aurora/CountUp";
+import styles from "@/components/aurora/aurora.module.css";
 import { useSession } from "@/hooks/useSession";
 import {
   deleteOrganization,
@@ -12,6 +13,7 @@ import {
   updateOrganization,
   type Organization,
 } from "@/lib/superAdmin";
+import local from "../../superAdmin.module.css";
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
@@ -19,8 +21,6 @@ function formatDate(iso: string): string {
 
 export function OrganizationDetailClient({ orgId }: { orgId: string }) {
   const { user, loading } = useSession("super_admin");
-  const { theme } = useTheme();
-  const palette = getAdminPalette(theme);
   const [org, setOrg] = useState<Organization | null>(null);
   const [dataLoading, setDataLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -84,123 +84,147 @@ export function OrganizationDetailClient({ orgId }: { orgId: string }) {
     }
   }
 
-  if (loading || !user) {
-    return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: palette.textMuted, fontSize: "14px", background: palette.bg }}>
-        Loading…
-      </div>
-    );
-  }
+  if (loading || !user) return <AuroraLoading />;
+
+  const statusColor = org?.status === "active" ? "#34D399" : "#FB7185";
 
   return (
-    <SuperAdminShell user={user}>
-      <Link href="/super-admin" style={{ fontSize: "12px", color: palette.textMuted, textDecoration: "none", marginBottom: "16px", display: "inline-block" }}>
+    <>
+      <Link href="/super-admin" style={{ fontSize: "13px", color: "var(--text-3)", textDecoration: "none", alignSelf: "flex-start" }}>
         ← All organizations
       </Link>
 
       {error && (
-        <p style={{ fontSize: "13px", color: palette.negative, margin: "0 0 16px" }} role="alert">
+        <p style={{ fontSize: "13px", color: "#FB7185", margin: 0 }} role="alert">
           {error}
         </p>
       )}
 
       {dataLoading ? (
-        <p style={{ fontSize: "12px", color: palette.textMuted }}>Loading…</p>
+        <AuroraLoading label="Loading organization…" />
       ) : org ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
-            <div>
-              <h1 style={{ fontSize: "20px", fontWeight: 800, color: palette.textPrimary, margin: 0 }}>{org.name}</h1>
-              <p style={{ fontSize: "12px", color: palette.textMuted, margin: "4px 0 0" }}>
-                Created {formatDate(org.created_at)} · Status:{" "}
-                <span style={{ color: org.status === "active" ? palette.positive : palette.negative, fontWeight: 700 }}>{org.status}</span>
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={handleToggleStatus}
-              disabled={toggling}
-              style={{
-                ...(org.status === "active" ? palette.dangerButton : palette.primaryButton),
-                opacity: toggling ? 0.7 : 1,
-              }}
-            >
-              {toggling ? "Working…" : org.status === "active" ? "Suspend Organization" : "Reactivate Organization"}
-            </button>
-          </div>
+        <>
+          <AuroraPageHeader
+            eyebrow="Organization"
+            title={org.name}
+            subtitle={
+              <>
+                Created {formatDate(org.created_at)} ·{" "}
+                <span className={styles.chip} style={{ color: statusColor, background: `${statusColor}29`, textTransform: "capitalize" }}>
+                  <span className={styles.dot} style={{ background: statusColor }} />
+                  {org.status}
+                </span>
+              </>
+            }
+            actions={
+              <button
+                type="button"
+                onClick={handleToggleStatus}
+                disabled={toggling}
+                className={`${styles.btn} ${org.status === "active" ? styles.btnDanger : styles.btnAccent}`}
+              >
+                {toggling ? "Working…" : org.status === "active" ? "Suspend Organization" : "Reactivate Organization"}
+              </button>
+            }
+          />
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "12px" }}>
-            {[
-              ["Employers", org.employer_count],
-              ["Candidates", org.candidate_count],
-              ["Jobs", org.job_count],
-            ].map(([label, value]) => (
-              <div key={label} style={{ ...palette.card, textAlign: "center" }}>
-                <div style={{ fontSize: "24px", fontWeight: 800, color: palette.textPrimary }}>{value}</div>
-                <div style={{ fontSize: "11px", color: palette.textMuted, textTransform: "uppercase", letterSpacing: "0.04em" }}>{label}</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "16px" }}>
+            {(
+              [
+                ["Employers", org.employer_count, "accent"],
+                ["Candidates", org.candidate_count, "violet"],
+                ["Jobs", org.job_count, "glass"],
+              ] as const
+            ).map(([label, value, kind]) => (
+              <div
+                key={label}
+                className={`${kind === "glass" ? styles.glass : ""} ${styles.lift}`}
+                style={{
+                  borderRadius: "28px",
+                  padding: "24px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "14px",
+                  background: kind === "accent" ? "var(--accent)" : kind === "violet" ? "#0066ff" : undefined,
+                  color: kind === "accent" ? "var(--on-accent)" : kind === "violet" ? "#fff" : "var(--text)",
+                }}
+              >
+                <div style={{ fontSize: "11px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.12em", opacity: 0.75 }}>
+                  {label}
+                </div>
+                <div className={styles.display} style={{ fontWeight: 800, fontSize: "56px", lineHeight: 1, letterSpacing: "-0.04em" }}>
+                  <CountUp value={value} />
+                </div>
               </div>
             ))}
           </div>
 
-          <div style={{ ...palette.card, display: "flex", flexDirection: "column", gap: "12px" }}>
-            <h2 style={{ fontSize: "13px", fontWeight: 800, color: palette.textPrimary, margin: 0, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-              Rename Organization
-            </h2>
-            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                style={{ ...palette.input, maxWidth: "320px" }}
-              />
-              <button
-                type="button"
-                onClick={handleRename}
-                disabled={saving || name.trim() === org.name || !name.trim()}
-                style={{ ...palette.primaryButton, opacity: saving ? 0.7 : 1 }}
-              >
-                {saving ? "Saving…" : "Save"}
-              </button>
-            </div>
-            {saveError && (
-              <p style={{ fontSize: "12px", color: palette.negative, margin: 0 }} role="alert">
-                {saveError}
-              </p>
-            )}
-          </div>
-
-          <div style={{ ...palette.card, borderColor: palette.dark ? "#7f1d1d" : "#fecaca", display: "flex", flexDirection: "column", gap: "12px" }}>
-            <h2 style={{ fontSize: "13px", fontWeight: 800, color: palette.negative, margin: 0, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-              Danger Zone
-            </h2>
-            <p style={{ fontSize: "12px", color: palette.textMuted, margin: 0 }}>
-              Permanently deletes this organization and every employer, candidate, job, interview, and offer that
-              belongs to it. This cannot be undone.
-            </p>
-            {!confirmingDelete ? (
-              <div>
-                <button type="button" style={palette.dangerButton} onClick={() => setConfirmingDelete(true)}>
-                  Delete Organization
-                </button>
+          <div className={local.cols2}>
+            <div className={`${styles.glass} ${styles.card}`} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              <h2 className={styles.display} style={{ fontWeight: 600, fontSize: "18px", margin: 0, color: "var(--text)" }}>
+                Rename Organization
+              </h2>
+              <div className={styles.field}>
+                <label className={styles.lbl} htmlFor="org-rename">
+                  Organization Name
+                </label>
+                <input id="org-rename" className={styles.inp} value={name} onChange={(e) => setName(e.target.value)} />
               </div>
-            ) : (
-              <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
-                <span style={{ fontSize: "12px", color: palette.negative, fontWeight: 700 }}>Are you sure?</span>
+              {saveError && (
+                <p style={{ fontSize: "13px", color: "#FB7185", margin: 0 }} role="alert">
+                  {saveError}
+                </p>
+              )}
+              <div>
                 <button
                   type="button"
-                  onClick={handleDelete}
-                  disabled={deleting}
-                  style={{ ...palette.dangerButton, background: "#7f1d1d", color: "#fff", opacity: deleting ? 0.7 : 1 }}
+                  onClick={handleRename}
+                  disabled={saving || name.trim() === org.name || !name.trim()}
+                  className={`${styles.btn} ${styles.btnAccent}`}
                 >
-                  {deleting ? "Deleting…" : "Yes, delete everything"}
-                </button>
-                <button type="button" style={palette.secondaryButton} onClick={() => setConfirmingDelete(false)}>
-                  Cancel
+                  {saving ? "Saving…" : "Save"}
                 </button>
               </div>
-            )}
+            </div>
+
+            <div
+              className={`${styles.glass} ${styles.card}`}
+              style={{ display: "flex", flexDirection: "column", gap: "16px", borderColor: "rgba(251,113,133,.4)" }}
+            >
+              <h2 className={styles.display} style={{ fontWeight: 600, fontSize: "18px", margin: 0, color: "#FB7185" }}>
+                Danger Zone
+              </h2>
+              <p style={{ fontSize: "13px", color: "var(--text-3)", margin: 0, lineHeight: 1.55 }}>
+                Permanently deletes this organization and every employer, candidate, job, interview, and offer that
+                belongs to it. This cannot be undone.
+              </p>
+              {!confirmingDelete ? (
+                <div>
+                  <button type="button" className={`${styles.btn} ${styles.btnDanger}`} onClick={() => setConfirmingDelete(true)}>
+                    Delete Organization
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+                  <span style={{ fontSize: "13px", color: "#FB7185", fontWeight: 700 }}>Are you sure?</span>
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className={`${styles.btn} ${styles.btnDanger}`}
+                    style={{ background: "#FB7185", color: "#1a0509" }}
+                  >
+                    {deleting ? "Deleting…" : "Yes, delete everything"}
+                  </button>
+                  <button type="button" className={`${styles.btn} ${styles.btnGlass}`} onClick={() => setConfirmingDelete(false)}>
+                    Cancel
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        </>
       ) : null}
-    </SuperAdminShell>
+    </>
   );
 }

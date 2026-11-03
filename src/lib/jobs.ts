@@ -24,6 +24,7 @@ export type Job = {
   status: JobStatus;
   salary_min: number | null;
   salary_max: number | null;
+  experience_min_years: number | null;
   application_count: number;
   created_by_name: string | null;
   created_by_email: string | null;
@@ -40,6 +41,39 @@ export type JobPayload = {
   status?: JobStatus;
   salary_min?: number | null;
   salary_max?: number | null;
+  experience_min_years?: number | null;
+};
+
+export type ResumeData = {
+  name: string;
+  headline: string;
+  email: string;
+  phone: string;
+  location: string;
+  links: { label: string; url: string }[];
+  summary: string;
+  total_experience_years: number | null;
+  skills: string[];
+  experience: { title: string; company: string; period: string; highlights: string[] }[];
+  education: { degree: string; institution: string; period: string }[];
+  projects: { name: string; description: string; tech: string }[];
+  certifications: string[];
+  source: "ai" | "basic";
+  filename: string;
+};
+
+export type PortfolioData = {
+  url: string;
+  final_url?: string;
+  status: "ok" | "unreachable" | "unsupported" | "blocked";
+  error?: string;
+  title: string;
+  description: string;
+  summary: string;
+  highlights: string[];
+  technologies: string[];
+  embeddable: boolean;
+  fetched_at: string;
 };
 
 export type CandidateSummary = {
@@ -59,6 +93,10 @@ export type JobApplication = {
   status: JobApplicationStatus;
   cover_letter: string | null;
   notes: string | null;
+  resume_filename: string | null;
+  resume_data: ResumeData | null;
+  portfolio_url: string | null;
+  portfolio_data: PortfolioData | null;
   created_at: string;
   updated_at: string;
   candidate: CandidateSummary;
@@ -78,6 +116,7 @@ export type JobBoardListing = {
   employment_type: EmploymentType;
   salary_min: number | null;
   salary_max: number | null;
+  experience_min_years: number | null;
   created_at: string;
   already_applied: boolean;
   my_application_status: JobApplicationStatus | null;
@@ -98,12 +137,15 @@ export type JobSummary = {
   status: JobStatus;
   salary_min: number | null;
   salary_max: number | null;
+  experience_min_years?: number | null;
 };
 
 export type MyApplication = {
   id: string;
   status: JobApplicationStatus;
   cover_letter: string | null;
+  resume_filename?: string | null;
+  portfolio_url?: string | null;
   created_at: string;
   updated_at: string;
   job: JobSummary;
@@ -192,6 +234,34 @@ export function listOpenJobs(): Promise<JobBoardListing[]> {
 
 export function applyToJob(jobId: string, payload: ApplyPayload): Promise<JobApplication> {
   return request(`/jobs/${jobId}/apply`, { method: "POST", body: JSON.stringify(payload) });
+}
+
+export type ApplyWithResumeInput = {
+  resume: File;
+  portfolio_url?: string;
+  phone?: string;
+  cover_letter?: string;
+};
+
+/** Apply with a Word resume (.doc / .docx) and an optional portfolio link. */
+export async function applyWithResume(jobId: string, input: ApplyWithResumeInput): Promise<JobApplication> {
+  const form = new FormData();
+  form.append("resume", input.resume, input.resume.name);
+  if (input.portfolio_url?.trim()) form.append("portfolio_url", input.portfolio_url.trim());
+  if (input.phone?.trim()) form.append("phone", input.phone.trim());
+  if (input.cover_letter?.trim()) form.append("cover_letter", input.cover_letter.trim());
+  const res = await fetch(`${API_URL}/jobs/${jobId}/apply/form`, { method: "POST", headers: authHeaders(), body: form });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(typeof body?.detail === "string" ? body.detail : "Could not submit your application. Please check the file and try again.");
+  }
+  return res.json();
+}
+
+/** "Fresher friendly" or "5+ years experience", for a job's experience requirement. */
+export function experienceLabel(years: number | null | undefined): string | null {
+  if (years === null || years === undefined) return null;
+  return years <= 0 ? "Fresher friendly" : `${years}+ years experience`;
 }
 
 export function listMyApplications(): Promise<MyApplication[]> {

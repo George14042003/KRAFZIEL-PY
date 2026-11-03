@@ -1,18 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type FormEvent } from "react";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
-import { StatusBadge } from "@/components/dashboard/StatusBadge";
+import { AuroraPageHeader } from "@/components/aurora/AuroraPageHeader";
+import aurora from "@/components/aurora/aurora.module.css";
+import local from "./interviews.module.css";
 import { CalendarPickerField } from "@/components/scheduling/CalendarPicker";
-import {
-  cardStyle,
-  inputStyle,
-  labelStyle,
-  primaryButtonStyle,
-  secondaryButtonStyle,
-} from "@/components/dashboard/formStyles";
 import { useSession } from "@/hooks/useSession";
+import { useOpenEdition } from "@/lib/edition";
 import {
   createInterview,
   deleteInterview,
@@ -45,12 +41,45 @@ const TYPE_FILTERS: { value: InterviewType | "all"; label: string }[] = [
 ];
 
 const TYPE_COLORS: Record<InterviewType, string> = {
-  phone: "#0d9488",
-  video: "#4338ca",
-  onsite: "#ea580c",
-  technical: "#7c3aed",
-  final: "#dc2626",
-  bot: "#0f172a",
+  phone: "#00B4FF",
+  video: "#0066FF",
+  onsite: "#5B6472",
+  technical: "#0F172A",
+  final: "#00E5FF",
+  bot: "#3B4147",
+};
+
+const COLS = "1.4fr 1.8fr 1fr 1.3fr .8fr 1.3fr .8fr";
+
+const AVAILABILITY_COLORS: Record<string, string> = {
+  accepted: "#007C8A",
+  pending: "#0080B8",
+  declined: "#D7173E",
+};
+
+function AvailabilityChip({ status }: { status: string }) {
+  const c = AVAILABILITY_COLORS[status] ?? "#6B7280";
+  const label = status
+    .split("_")
+    .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
+    .join(" ");
+  return (
+    <span className={aurora.chip} style={{ color: c, background: `${c}29` }}>
+      <span className={aurora.dot} style={{ background: c }} />
+      {label}
+    </span>
+  );
+}
+
+const pickerStyle: CSSProperties = {
+  boxSizing: "border-box",
+  width: "100%",
+  minHeight: "48px",
+  padding: "0 16px",
+  borderRadius: "16px",
+  border: "1px solid var(--line-strong)",
+  fontSize: "14px",
+  fontFamily: "inherit",
 };
 
 function typeLabel(type: InterviewType): string {
@@ -98,10 +127,12 @@ export function InterviewsClient() {
     return counts;
   }, [interviews]);
 
+  const openEdition = useOpenEdition();
   const filteredInterviews = useMemo(() => {
     const q = search.trim().toLowerCase();
     return interviews
       .filter((i) => {
+        if (openEdition && i.interview_type !== "video") return false; // open source edition: video only
         if (statusFilter !== "all" && i.status !== statusFilter) return false;
         if (typeFilter !== "all" && i.interview_type !== typeFilter) return false;
         if (!q) return true;
@@ -115,11 +146,7 @@ export function InterviewsClient() {
   }, [interviews, search, statusFilter, typeFilter, candidateMap]);
 
   if (loading || !user) {
-    return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-secondary)", fontSize: "14px" }}>
-        Loading…
-      </div>
-    );
+    return <div className={local.fullLoading}>Loading…</div>;
   }
 
   async function handleStatusChange(interview: Interview, status: InterviewStatus) {
@@ -134,286 +161,148 @@ export function InterviewsClient() {
   }
 
   return (
-    <DashboardShell user={user} fitToScreen>
-      <div style={{ display: "flex", flexDirection: "column", gap: "16px", height: "100%" }}>
-        <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: 0 }}>
-          Dashboard <span style={{ color: "var(--text-faint)" }}>/</span> Interviews
-        </p>
-
-        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: "16px", flexWrap: "wrap" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-            <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--text-primary)", margin: 0, letterSpacing: "-0.01em" }}>
-              Interviews
-            </h1>
-            <p style={{ fontSize: "13px", color: "var(--text-secondary)", margin: 0 }}>
-              {interviews.length} interviews · across your whole team
-            </p>
-          </div>
-          {!showForm && (
-            <button type="button" style={primaryButtonStyle} onClick={() => setShowForm(true)}>
+    <DashboardShell user={user}>
+      <AuroraPageHeader
+        eyebrow="Schedule"
+        title="Interviews"
+        subtitle={`${interviews.length} interviews · across your whole team`}
+        actions={
+          !showForm ? (
+            <button type="button" className={`${aurora.btn} ${aurora.btnAccent}`} onClick={() => setShowForm(true)}>
               + Schedule Interview
             </button>
-          )}
-        </div>
+          ) : undefined
+        }
+      />
 
-        {error && (
-          <p style={{ fontSize: "13px", color: "#fecaca", margin: 0 }} role="alert">
-            {error}
+      {error && (
+        <p className={local.error} role="alert">
+          {error}
+        </p>
+      )}
+
+      {showForm && (
+        <ScheduleInterviewForm
+          candidates={candidates}
+          onCreated={(interview) => {
+            setInterviews((prev) => [interview, ...prev]);
+            setShowForm(false);
+          }}
+          onCancel={() => setShowForm(false)}
+        />
+      )}
+
+      {dataLoading ? (
+        <div className={local.loading}>Loading interviews…</div>
+      ) : interviews.length === 0 ? (
+        <div className={`${aurora.glass} ${local.emptyCard}`}>
+          <span className={local.emptyTitle}>No interviews yet</span>
+          <p className={local.emptyText}>
+            Schedule an interview for any candidate in your pool to see it show up here.
           </p>
-        )}
-
-        {showForm && (
-          <ScheduleInterviewForm
-            candidates={candidates}
-            onCreated={(interview) => {
-              setInterviews((prev) => [interview, ...prev]);
-              setShowForm(false);
-            }}
-            onCancel={() => setShowForm(false)}
-          />
-        )}
-
-        {dataLoading ? (
-          <div style={{ color: "var(--text-tertiary)", fontSize: "13px" }}>Loading interviews…</div>
-        ) : interviews.length === 0 ? (
-          <div
-            style={{
-              background: "#fff",
-              border: "1px solid #e2e8f0",
-              borderRadius: "16px",
-              padding: "48px 24px",
-              textAlign: "center",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: "8px",
-            }}
-          >
-            <span style={{ fontSize: "15px", fontWeight: 700, color: "#0f172a" }}>No interviews yet</span>
-            <p style={{ fontSize: "13px", color: "#64748b", margin: 0, maxWidth: "360px" }}>
-              Schedule an interview for any candidate in your pool to see it show up here.
-            </p>
-          </div>
-        ) : (
-          <div style={{ display: "flex", gap: "16px", flex: 1, minHeight: 0 }}>
-            <aside
-              style={{
-                width: "200px",
-                flexShrink: 0,
-                background: "#fff",
-                border: "1px solid #e2e8f0",
-                borderRadius: "16px",
-                padding: "16px",
-                display: "flex",
-                flexDirection: "column",
-                gap: "12px",
-                overflowY: "auto",
-              }}
-            >
-              <span style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.08em", color: "#94a3b8" }}>
-                STATUS
-              </span>
-              <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                {STATUS_FILTERS.map((s) => {
-                  const count = s.value === "all" ? interviews.length : statusCounts.get(s.value) ?? 0;
-                  const isActive = statusFilter === s.value;
-                  return (
-                    <button
-                      key={s.value}
-                      type="button"
-                      onClick={() => setStatusFilter(s.value)}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        padding: "8px 10px",
-                        borderRadius: "8px",
-                        border: "none",
-                        background: isActive ? "#e0f2fe" : "transparent",
-                        color: isActive ? "#01617a" : "#334155",
-                        fontWeight: isActive ? 700 : 500,
-                        fontSize: "13px",
-                        cursor: "pointer",
-                        textAlign: "left",
-                      }}
-                    >
-                      {s.label}
-                      <span
-                        style={{
-                          fontSize: "11px",
-                          fontWeight: 700,
-                          background: isActive ? "#bae6fd" : "#f1f5f9",
-                          color: isActive ? "#014a5e" : "#64748b",
-                          borderRadius: "999px",
-                          padding: "1px 8px",
-                        }}
-                      >
-                        {count}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </aside>
-
-            <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: "12px" }}>
-              <div
-                style={{
-                  background: "#fff",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: "16px",
-                  padding: "14px 18px",
-                  display: "flex",
-                  alignItems: "flex-end",
-                  gap: "16px",
-                  flexWrap: "wrap",
-                }}
-              >
-                <div style={{ display: "flex", flexDirection: "column", gap: "6px", flex: "1 1 220px" }}>
-                  <label style={{ fontSize: "11px", fontWeight: 700, color: "#64748b" }}>Search</label>
-                  <input
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Candidate, interviewer..."
-                    style={{
-                      padding: "9px 12px",
-                      border: "1px solid #e2e8f0",
-                      borderRadius: "8px",
-                      fontSize: "13px",
-                      color: "#0f172a",
-                      outline: "none",
-                    }}
-                  />
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                  <label style={{ fontSize: "11px", fontWeight: 700, color: "#64748b" }}>Type</label>
-                  <select
-                    value={typeFilter}
-                    onChange={(e) => setTypeFilter(e.target.value as InterviewType | "all")}
-                    style={{
-                      padding: "9px 12px",
-                      border: "1px solid #e2e8f0",
-                      borderRadius: "8px",
-                      fontSize: "13px",
-                      color: "#0f172a",
-                      outline: "none",
-                      background: "#fff",
-                    }}
-                  >
-                    {TYPE_FILTERS.map((t) => (
-                      <option key={t.value} value={t.value}>
-                        {t.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <span style={{ fontSize: "12px", color: "#94a3b8", paddingBottom: "9px" }}>
-                  {filteredInterviews.length} shown
-                </span>
-              </div>
-
-              <div
-                style={{
-                  background: "#fff",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: "16px",
-                  flex: 1,
-                  minHeight: 0,
-                  display: "flex",
-                  flexDirection: "column",
-                  overflow: "hidden",
-                }}
-              >
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1.8fr 1.3fr 0.9fr 1.1fr 0.7fr 1.1fr 0.6fr",
-                    gap: "8px",
-                    padding: "12px 18px",
-                    borderBottom: "1px solid #e2e8f0",
-                    fontSize: "10px",
-                    fontWeight: 800,
-                    letterSpacing: "0.06em",
-                    color: "#94a3b8",
-                  }}
+        </div>
+      ) : (
+        <div className={aurora.sidebarLayout}>
+          <aside className={`${aurora.glass} ${aurora.sideCard}`}>
+            <span className={aurora.sideLabel}>Status</span>
+            {STATUS_FILTERS.map((s) => {
+              const count = s.value === "all" ? interviews.length : statusCounts.get(s.value) ?? 0;
+              const isActive = statusFilter === s.value;
+              return (
+                <button
+                  key={s.value}
+                  type="button"
+                  onClick={() => setStatusFilter(s.value)}
+                  className={`${aurora.fi} ${isActive ? aurora.fiOn : ""}`}
                 >
-                  <span>CANDIDATE</span>
-                  <span>DATE &amp; TIME</span>
-                  <span>TYPE</span>
-                  <span>INTERVIEWER</span>
-                  <span>DURATION</span>
-                  <span>STATUS</span>
+                  {s.label}
+                  <span className={aurora.n}>{count}</span>
+                </button>
+              );
+            })}
+          </aside>
+
+          <div className={local.col}>
+            <div className={`${aurora.glass} ${local.filterCard}`}>
+              <div className={aurora.field} style={{ flex: "1 1 300px" }}>
+                <label className={aurora.lbl} htmlFor="interview-search">
+                  Search
+                </label>
+                <input
+                  id="interview-search"
+                  className={aurora.inp}
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Candidate, interviewer…"
+                />
+              </div>
+              <div className={aurora.field} style={{ flex: "0 0 180px" }}>
+                <label className={aurora.lbl} htmlFor="interview-type">
+                  Type
+                </label>
+                <select
+                  id="interview-type"
+                  className={aurora.inp}
+                  value={typeFilter}
+                  onChange={(e) => setTypeFilter(e.target.value as InterviewType | "all")}
+                >
+                  {TYPE_FILTERS.map((t) => (
+                    <option key={t.value} value={t.value}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <span className={local.shown}>{filteredInterviews.length} shown</span>
+            </div>
+
+            <div className={`${aurora.glass} ${aurora.tableCard}`}>
+              <div className={aurora.tableScroll}>
+                <div className={aurora.th} style={{ gridTemplateColumns: COLS }}>
+                  <span>Candidate</span>
+                  <span>Date &amp; Time</span>
+                  <span>Type</span>
+                  <span>Interviewer</span>
+                  <span>Duration</span>
+                  <span>Status</span>
                   <span></span>
                 </div>
 
-                <div style={{ overflowY: "auto", flex: 1, minHeight: 0 }}>
-                  {filteredInterviews.length === 0 ? (
-                    <p style={{ fontSize: "13px", color: "#94a3b8", padding: "24px 18px" }}>
-                      No interviews match these filters.
-                    </p>
-                  ) : (
-                    filteredInterviews.map((interview) => {
-                      const candidate = candidateMap.get(interview.candidate_id);
-                      const color = TYPE_COLORS[interview.interview_type];
-                      return (
-                        <div
-                          key={interview.id}
-                          style={{
-                            display: "grid",
-                            gridTemplateColumns: "1.8fr 1.3fr 0.9fr 1.1fr 0.7fr 1.1fr 0.6fr",
-                            alignItems: "center",
-                            gap: "8px",
-                            padding: "10px 18px",
-                            borderBottom: "1px solid #f1f5f9",
-                          }}
-                        >
-                          <Link
-                            href={`/employer/candidates/${interview.candidate_id}`}
-                            style={{
-                              fontSize: "13px",
-                              fontWeight: 700,
-                              color: "#0f172a",
-                              textDecoration: "none",
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                            }}
-                          >
-                            {candidate?.applicant_name ?? "Unknown candidate"}
-                          </Link>
-                          <span style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
-                            <span style={{ fontSize: "12px", color: "#334155" }}>{formatWhen(interview.scheduled_at)}</span>
-                            <StatusBadge status={interview.availability_status} />
-                          </span>
-                          <span style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "#334155" }}>
-                            <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: color, flexShrink: 0 }} />
-                            {typeLabel(interview.interview_type)}
-                          </span>
-                          <span
-                            style={{
-                              fontSize: "12px",
-                              color: "#334155",
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                            }}
-                          >
-                            {interview.interviewer_name}
-                          </span>
-                          <span style={{ fontSize: "12px", color: "#334155" }}>{interview.duration_minutes}m</span>
+                {filteredInterviews.length === 0 ? (
+                  <p className={local.empty}>No interviews match these filters.</p>
+                ) : (
+                  filteredInterviews.map((interview) => {
+                    const candidate = candidateMap.get(interview.candidate_id);
+                    const color = TYPE_COLORS[interview.interview_type];
+                    return (
+                      <div key={interview.id} className={aurora.tr} style={{ gridTemplateColumns: COLS }}>
+                        <Link href={`/employer/candidates/${interview.candidate_id}`} className={local.cand}>
+                          {candidate?.applicant_name ?? "Unknown candidate"}
+                        </Link>
+                        <span className={local.when}>
+                          <span className={local.whenText}>{formatWhen(interview.scheduled_at)}</span>
+                          <AvailabilityChip status={interview.availability_status} />
+                          {!interview.candidate_has_account && (
+                            <span
+                              className={local.noAcct}
+                              title="No verified account yet — they must sign up before they can confirm or join."
+                            >
+                              No account yet
+                            </span>
+                          )}
+                        </span>
+                        <span className={local.cell}>
+                          <span className={local.typeDot} style={{ background: color }} />
+                          {typeLabel(interview.interview_type)}
+                        </span>
+                        <span className={`${local.cell} ${local.ellipsis}`}>{interview.interviewer_name}</span>
+                        <span className={local.cell}>{interview.duration_minutes}m</span>
+                        <span className={local.selectWrap}>
                           <select
+                            className={`${aurora.chip} ${aurora.chipSelect}`}
                             value={interview.status}
                             onChange={(e) => handleStatusChange(interview, e.target.value as InterviewStatus)}
-                            style={{
-                              fontSize: "11px",
-                              fontWeight: 700,
-                              padding: "5px 8px",
-                              borderRadius: "8px",
-                              border: "1px solid #e2e8f0",
-                              color: "#334155",
-                              background: "#fff",
-                              width: "fit-content",
-                            }}
+                            aria-label="Interview status"
                           >
                             {STATUS_FILTERS.filter((s) => s.value !== "all").map((s) => (
                               <option key={s.value} value={s.value}>
@@ -421,32 +310,31 @@ export function InterviewsClient() {
                               </option>
                             ))}
                           </select>
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(interview)}
-                            style={{
-                              justifySelf: "end",
-                              fontSize: "11px",
-                              fontWeight: 700,
-                              color: "#dc2626",
-                              background: "transparent",
-                              border: "none",
-                              cursor: "pointer",
-                              padding: "4px 6px",
-                            }}
+                          <svg
+                            className={local.chev}
+                            width="12"
+                            height="12"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2.4"
+                            aria-hidden="true"
                           >
-                            Remove
-                          </button>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
+                            <path d="M6 9l6 6 6-6" />
+                          </svg>
+                        </span>
+                        <button type="button" className={local.remove} onClick={() => handleDelete(interview)}>
+                          Remove
+                        </button>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </DashboardShell>
   );
 }
@@ -463,6 +351,7 @@ function ScheduleInterviewForm({
   const [candidateId, setCandidateId] = useState(candidates[0]?.id ?? "");
   const [scheduledAt, setScheduledAt] = useState("");
   const [duration, setDuration] = useState("30");
+  const openEdition = useOpenEdition();
   const [type, setType] = useState<InterviewType>("phone");
   const [interviewerName, setInterviewerName] = useState("");
   const [interviewerEmail, setInterviewerEmail] = useState("");
@@ -483,7 +372,7 @@ function ScheduleInterviewForm({
       const interview = await createInterview(candidateId, {
         scheduled_at: new Date(scheduledAt).toISOString(),
         duration_minutes: Number(duration),
-        interview_type: type,
+        interview_type: openEdition ? "video" : type,
         interviewer_name: interviewerName,
         interviewer_email: interviewerEmail || undefined,
         location_or_link: locationOrLink || undefined,
@@ -498,11 +387,11 @@ function ScheduleInterviewForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ ...cardStyle, display: "flex", flexDirection: "column", gap: "12px" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 2fr 1fr 1fr", gap: "12px" }}>
-        <div>
-          <label style={labelStyle}>Candidate</label>
-          <select value={candidateId} onChange={(e) => setCandidateId(e.target.value)} style={inputStyle}>
+    <form onSubmit={handleSubmit} className={`${aurora.glass} ${local.formCard}`}>
+      <div className={local.grid4}>
+        <div className={aurora.field}>
+          <label className={aurora.lbl}>Candidate</label>
+          <select className={aurora.inp} value={candidateId} onChange={(e) => setCandidateId(e.target.value)}>
             {candidates.length === 0 && <option value="">No candidates yet</option>}
             {candidates.map((c) => (
               <option key={c.id} value={c.id}>
@@ -511,18 +400,25 @@ function ScheduleInterviewForm({
             ))}
           </select>
         </div>
-        <div>
-          <label style={labelStyle}>Date &amp; Time</label>
-          <CalendarPickerField value={scheduledAt} onChange={setScheduledAt} inputStyle={inputStyle} />
+        <div className={aurora.field}>
+          <label className={aurora.lbl}>Date &amp; Time</label>
+          <CalendarPickerField value={scheduledAt} onChange={setScheduledAt} inputStyle={pickerStyle} />
         </div>
-        <div>
-          <label style={labelStyle}>Duration (min)</label>
-          <input type="number" min={5} max={480} value={duration} onChange={(e) => setDuration(e.target.value)} style={inputStyle} />
+        <div className={aurora.field}>
+          <label className={aurora.lbl}>Duration (min)</label>
+          <input
+            className={aurora.inp}
+            type="number"
+            min={5}
+            max={480}
+            value={duration}
+            onChange={(e) => setDuration(e.target.value)}
+          />
         </div>
-        <div>
-          <label style={labelStyle}>Type</label>
-          <select value={type} onChange={(e) => setType(e.target.value as InterviewType)} style={inputStyle}>
-            {TYPE_FILTERS.filter((t) => t.value !== "all" && t.value !== "bot").map((t) => (
+        <div className={aurora.field}>
+          <label className={aurora.lbl}>Type</label>
+          <select className={aurora.inp} value={openEdition ? "video" : type} onChange={(e) => setType(e.target.value as InterviewType)}>
+            {TYPE_FILTERS.filter((t) => t.value !== "all" && t.value !== "bot" && (!openEdition || t.value === "video")).map((t) => (
               <option key={t.value} value={t.value}>
                 {t.label}
               </option>
@@ -530,53 +426,53 @@ function ScheduleInterviewForm({
           </select>
         </div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-        <div>
-          <label style={labelStyle}>Interviewer Name</label>
+      <div className={local.grid2}>
+        <div className={aurora.field}>
+          <label className={aurora.lbl}>Interviewer Name</label>
           <input
+            className={aurora.inp}
             required
             value={interviewerName}
             onChange={(e) => setInterviewerName(e.target.value)}
             placeholder="Dana Lee"
-            style={inputStyle}
           />
         </div>
-        <div>
-          <label style={labelStyle}>Interviewer Email (optional)</label>
+        <div className={aurora.field}>
+          <label className={aurora.lbl}>Interviewer Email (optional)</label>
           <input
+            className={aurora.inp}
             type="email"
             value={interviewerEmail}
             onChange={(e) => setInterviewerEmail(e.target.value)}
             placeholder="dana@nextenti.com"
-            style={inputStyle}
           />
         </div>
       </div>
-      <div>
-        <label style={labelStyle}>Location or Video Link (optional)</label>
+      <div className={aurora.field}>
+        <label className={aurora.lbl}>Location or Video Link (optional)</label>
         <input
+          className={aurora.inp}
           value={locationOrLink}
           onChange={(e) => setLocationOrLink(e.target.value)}
           placeholder="https://meet…"
-          style={inputStyle}
         />
       </div>
-      <div>
-        <label style={labelStyle}>Notes (optional)</label>
-        <input value={notes} onChange={(e) => setNotes(e.target.value)} style={inputStyle} />
+      <div className={aurora.field}>
+        <label className={aurora.lbl}>Notes (optional)</label>
+        <input className={aurora.inp} value={notes} onChange={(e) => setNotes(e.target.value)} />
       </div>
 
       {error && (
-        <p style={{ fontSize: "12px", color: "#dc2626", margin: 0 }} role="alert">
+        <p className={local.error} role="alert">
           {error}
         </p>
       )}
 
-      <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
-        <button type="button" style={secondaryButtonStyle} onClick={onCancel}>
+      <div className={local.actions}>
+        <button type="button" className={`${aurora.btn} ${aurora.btnGlass}`} onClick={onCancel}>
           Cancel
         </button>
-        <button type="submit" disabled={submitting || !candidateId} style={{ ...primaryButtonStyle, opacity: submitting ? 0.7 : 1 }}>
+        <button type="submit" disabled={submitting || !candidateId} className={`${aurora.btn} ${aurora.btnAccent}`}>
           {submitting ? "Scheduling…" : "Schedule Interview"}
         </button>
       </div>

@@ -140,7 +140,9 @@ export async function fetchCurrentUser(token: string): Promise<AuthUser> {
   });
 
   if (!res.ok) {
-    throw new Error("Session expired.");
+    const err = new Error("Session expired.") as Error & { status?: number };
+    err.status = res.status;
+    throw err;
   }
 
   return res.json();
@@ -152,7 +154,13 @@ export function getStoredToken(): string | null {
 
 export function getStoredUser(): AuthUser | null {
   const raw = localStorage.getItem(USER_KEY) ?? sessionStorage.getItem(USER_KEY);
-  return raw ? (JSON.parse(raw) as AuthUser) : null;
+  try {
+    return raw ? (JSON.parse(raw) as AuthUser) : null;
+  } catch {
+    localStorage.removeItem(USER_KEY);
+    sessionStorage.removeItem(USER_KEY);
+    return null;
+  }
 }
 
 function authedHeaders(): Record<string, string> {
@@ -199,4 +207,22 @@ export function logout(): void {
   localStorage.removeItem(USER_KEY);
   sessionStorage.removeItem(TOKEN_KEY);
   sessionStorage.removeItem(USER_KEY);
+}
+
+/** Only same-site relative paths may be used as a post-login destination. */
+export function safeNextPath(value: string | null): string | null {
+  // Browsers drop tabs and newlines when parsing URLs, so "/<TAB>/host" would become "//host".
+  if (!value || /[\u0000-\u001f\u007f]/.test(value)) return null;
+  return value.startsWith("/") && !/^\/[\\/]/.test(value) ? value : null;
+}
+
+/** Page guard for interview links: returns the logged-in user if their role is allowed,
+ * otherwise sends the browser to the login page (which brings them back here after
+ * signing in) and returns null. */
+export function requireSessionOrRedirect(roles: Role[]): AuthUser | null {
+  const user = getStoredToken() ? getStoredUser() : null;
+  if (user && roles.includes(user.role)) return user;
+  const next = encodeURIComponent(window.location.pathname + window.location.search);
+  window.location.replace(`/login?role=${roles[0]}&next=${next}`);
+  return null;
 }
