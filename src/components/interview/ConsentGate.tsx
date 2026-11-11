@@ -21,8 +21,9 @@ const CONSENT_ITEMS = [
     title: "Proctoring & identity verification",
     body:
       "I consent to webcam-based face-presence checks and screen-share monitoring during the " +
-      "interview to help ensure academic/interview integrity, and to a single photo captured at the " +
-      "start of this interview being kept as a record of who attended it.",
+      "interview, used to show the interview is fair and really mine and to send me friendly reminders " +
+      "if I look away, and to a single photo captured at the start of this interview being kept as a " +
+      "record of who attended it.",
   },
   {
     key: "data_storage_and_retention" as const,

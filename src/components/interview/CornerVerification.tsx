@@ -29,7 +29,7 @@ const CENTER_POSE_LIMIT = 12; // degrees of yaw / pitch that still count as "loo
  * Layout is entirely percentage / viewport based, so it adapts to any screen size or orientation, and the
  * pose checks are ratios of the face itself, so they don't depend on camera resolution. Owns its own camera
  * stream and releases it when it unmounts. */
-export function CornerVerification({ onComplete }: { onComplete: (shots: CornerShot[]) => void }) {
+export function CornerVerification({ onComplete, onSkip }: { onComplete: (shots: CornerShot[]) => void; onSkip?: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [phase, setPhase] = useState<Phase>("loading");
   const [error, setError] = useState<string | null>(null);
@@ -262,6 +262,11 @@ export function CornerVerification({ onComplete }: { onComplete: (shots: CornerS
         {phase === "error" ? (
           <>
             <p className={styles.error}>{error}</p>
+            {onSkip && (
+              <button type="button" className={styles.skip} onClick={onSkip}>
+                Continue without the face check
+              </button>
+            )}
             <button
               type="button"
               className={styles.btn}
@@ -289,6 +294,11 @@ export function CornerVerification({ onComplete }: { onComplete: (shots: CornerS
             {scanning && !faceSeen && <p className={styles.warn}>We can&apos;t see your face. Move back into view and face the light.</p>}
             {scanning && faceSeen && stuck && current !== "center" && (
               <p className={styles.warn}>Turn a little further toward the glowing dot, and keep your eyes on it.</p>
+            )}
+            {onSkip && phase !== "done" && (
+              <button type="button" className={styles.skip} onClick={onSkip}>
+                Skip for now. This check is optional
+              </button>
             )}
             <ol className={styles.dots} aria-hidden="true">
               {sequence.map((a, i) => (

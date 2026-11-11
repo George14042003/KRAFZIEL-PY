@@ -34,8 +34,11 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return res.json();
 }
 
-export function listNotifications(): Promise<NotificationList> {
-  return request("/notifications");
+export async function listNotifications(): Promise<NotificationList> {
+  const data = await request<Partial<NotificationList> | null>("/notifications");
+  // A reply in an unexpected shape must not crash the bell: treat it like any other failed check.
+  if (!data || !Array.isArray(data.items)) throw new Error("Unexpected notifications response.");
+  return { unread_count: typeof data.unread_count === "number" ? data.unread_count : 0, items: data.items };
 }
 
 export function markNotificationRead(id: string): Promise<AppNotification> {

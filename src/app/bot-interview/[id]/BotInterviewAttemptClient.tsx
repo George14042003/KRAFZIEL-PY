@@ -12,7 +12,6 @@ import {
   sendInterviewHeartbeat,
   submitInterviewAttempt,
   submitInterviewConsent,
-  terminateInterviewAttempt,
   uploadFaceScan,
   uploadIdentitySnapshot,
   type InterviewAttempt,
@@ -42,15 +41,13 @@ type Stage =
   | "done"
   | "terminated";
 
-type TerminationReason = ProctorViolation | "connection_lost";
-
-const VIOLATION_TEXT: Record<TerminationReason, string> = {
-  tab_switch: "you switched away from this tab",
-  window_blur: "this window lost focus",
-  face_not_detected: "your face couldn't be detected in the camera for too long",
-  looking_away: "you turned away from the screen more times than the interview allows",
-  screen_share_stopped: "screen sharing was stopped",
-  connection_lost: "your connection to the interview was interrupted for too long",
+// Nothing here ever ends an interview. These are friendly reminders shown while the candidate answers.
+const REMINDER_TEXT: Record<ProctorViolation, string> = {
+  tab_switch: "Welcome back. Please try to stay on this page while you answer.",
+  window_blur: "Welcome back. Please try to stay on this page while you answer.",
+  face_not_detected: "We lost your camera. Please check it is still connected and allowed.",
+  looking_away: "Please keep your face towards the screen.",
+  screen_share_stopped: "Screen sharing was turned off. You can keep going. Sharing it again helps show the interview is yours.",
 };
 
 export function BotInterviewAttemptClient({ interviewId }: { interviewId: string }) {
@@ -75,79 +72,56 @@ export function BotInterviewAttemptClient({ interviewId }: { interviewId: string
   const [speakingMetrics, setSpeakingMetrics] = useState<SpeakingMetric[]>([]);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [terminationReason, setTerminationReason] = useState<TerminationReason | null>(null);
 
-
-  const terminatedRef = useRef(false);
   const answersRef = useRef<Answer[]>([]);
   answersRef.current = answers;
 
   const speech = useSpeechAnswer();
 
-  const handleViolation = useCallback(
-    (reason: ProctorViolation) => {
-      if (terminatedRef.current) return;
-      terminatedRef.current = true;
-      speech.stopListening();
-      if (typeof window !== "undefined") window.speechSynthesis?.cancel();
-      proctoring.stopAll();
-      setTerminationReason(reason);
-      setStage("terminated");
-      terminateInterviewAttempt(
-        interviewId,
-        reason,
-        answersRef.current.map((a) => ({ question: a.question, answer: a.answer }))
-      ).catch(() => {
-        // best-effort — the candidate is already locked out client-side regardless
-      });
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [interviewId]
-  );
+  // Leaving the page, stopping the screen share or losing the camera only shows a friendly reminder.
+  const [notice, setNotice] = useState<{ id: number; text: string; reshare: boolean } | null>(null);
+  const lastNoticeAt = useRef(0);
+  const handleViolation = useCallback((reason: ProctorViolation) => {
+    const now = Date.now();
+    // Switching tabs fires both a blur and a visibility event: one reminder is enough.
+    if (now - lastNoticeAt.current < 6000) return;
+    lastNoticeAt.current = now;
+    setNotice({ id: now, text: REMINDER_TEXT[reason], reshare: reason === "screen_share_stopped" });
+  }, []);
 
   const proctoring = useProctoring({
     active: stage === "question" || stage === "review",
     onViolation: handleViolation,
-    // Looking away or leaving the frame is handled by the warnings below instead of ending the interview at once.
+    // Looking away or leaving the frame is handled by the look-away reminders below.
     endOnMissingFace: false,
   });
 
-  // Look-away warnings: how many are allowed comes from the role's experience level (2 for freshers and most
-  // roles, 5 for senior roles). Each one plays an alert sound; the warning after the allowance ends the interview.
+  // Look-away reminders: a gentle message and a soft chime when the candidate turns away or leaves the camera view.
+  // They are counted so the employer can see them, but they never end the interview.
   const maxWarnings = attempt?.max_warnings ?? 2;
   const lookAway = useLookAwayWarnings({
     active: stage === "question" || stage === "review",
     videoRef: proctoring.videoRef,
     maxWarnings,
-    onExceeded: () => handleViolation("looking_away"),
   });
+  const lookAwayReminder = lookAway.latest
+    ? {
+        id: lookAway.latest.at,
+        text: lookAway.latest.reason === "no_face" ? "We can't see your face right now. Please move back into the camera view." : REMINDER_TEXT.looking_away,
+        reshare: false,
+      }
+    : null;
+  const reminder = lookAwayReminder && (!notice || lookAwayReminder.id > notice.id) ? lookAwayReminder : notice;
 
-  // Server-side half of proctoring: ping a heartbeat every few seconds while
-  // the attempt is live, independent of the client-side tab-switch/face/
-  // screen-share checks above. If the server reports back that it already
-  // cancelled the interview (heartbeat gap exceeded — see MAX_HEARTBEAT_GAP_SECONDS
-  // in the backend), lock the UI the same way a client-detected violation would.
+  // The heartbeat only lets the server know the candidate is still here. It never ends the interview.
   useEffect(() => {
     if (stage !== "question" && stage !== "review") return;
     const id = setInterval(() => {
-      sendInterviewHeartbeat(interviewId)
-        .then((result) => {
-          if (result.terminated && !terminatedRef.current) {
-            terminatedRef.current = true;
-            speech.stopListening();
-            if (typeof window !== "undefined") window.speechSynthesis?.cancel();
-            proctoring.stopAll();
-            setTerminationReason("connection_lost");
-            setStage("terminated");
-          }
-        })
-        .catch(() => {
-          // a single missed ping is just network jitter — the next attempt
-          // retries, and the server's own gap check covers genuine tampering
-        });
+      sendInterviewHeartbeat(interviewId).catch(() => {
+        // a missed ping is just network jitter; the next one catches up
+      });
     }, 5000);
     return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage, interviewId]);
 
   useEffect(() => {
@@ -185,12 +159,9 @@ export function BotInterviewAttemptClient({ interviewId }: { interviewId: string
     setStage("setup");
   }
 
-  const [verifyError, setVerifyError] = useState<string | null>(null);
-
-  // Four-corner face verification runs once the camera and screen share are live; the interview
-  // only starts after its frames are safely stored for the employer.
+  // The four-corner face check is optional. When it is done its frames are kept for the employer, but a failed
+  // upload never stops the interview.
   function beginVerification() {
-    setVerifyError(null);
     setStage("verify");
   }
 
@@ -198,11 +169,10 @@ export function BotInterviewAttemptClient({ interviewId }: { interviewId: string
     setStage("uploading-verification");
     try {
       await uploadFaceScan(interviewId, shots);
-      startInterview();
-    } catch (err) {
-      setVerifyError(err instanceof Error ? err.message : "Could not save your face verification.");
-      setStage("setup");
+    } catch {
+      // best effort: the candidate has done their part, so carry on
     }
+    startInterview();
   }
 
   function startInterview() {
@@ -296,9 +266,7 @@ export function BotInterviewAttemptClient({ interviewId }: { interviewId: string
       );
       proctoring.stopAll();
       if (result.status === "cancelled") {
-        // The server ended the interview (heartbeats went stale) instead of completing it.
-        terminatedRef.current = true;
-        setTerminationReason("connection_lost");
+        // Someone at the company closed this interview while it was open.
         setStage("terminated");
         return;
       }
@@ -341,13 +309,13 @@ export function BotInterviewAttemptClient({ interviewId }: { interviewId: string
         }}
       />
 
-      {stage === "verify" && <CornerVerification onComplete={handleVerificationDone} />}
+      {stage === "verify" && <CornerVerification onComplete={handleVerificationDone} onSkip={startInterview} />}
 
-      {lookAway.latest && lookAway.latest.n <= maxWarnings && (stage === "question" || stage === "review") && (
+      {reminder && (stage === "question" || stage === "review") && (
         <div
-          key={lookAway.latest.at}
-          role="alert"
-          aria-live="assertive"
+          key={reminder.id}
+          role="status"
+          aria-live="polite"
           style={{
             position: "fixed",
             top: "12px",
@@ -358,24 +326,24 @@ export function BotInterviewAttemptClient({ interviewId }: { interviewId: string
             boxSizing: "border-box",
             padding: "14px 18px",
             borderRadius: "14px",
-            background: "#b91c1c",
+            background: "#0c5a8a",
             color: "#fff",
-            boxShadow: "0 12px 40px rgba(0,0,0,0.4)",
-            animation: "lookAwayBanner 8s forwards",
+            boxShadow: "0 12px 40px rgba(0,0,0,0.35)",
+            animation: "friendlyReminder 8s forwards",
           }}
         >
-          <style>{"@keyframes lookAwayBanner{0%,92%{opacity:1;visibility:visible}100%{opacity:0;visibility:hidden}}"}</style>
-          <div style={{ fontWeight: 800, fontSize: "15px" }}>
-            Warning {lookAway.latest.n} of {maxWarnings}
-          </div>
-          <div style={{ fontSize: "13px", marginTop: "2px", lineHeight: 1.45 }}>
-            {lookAway.latest.reason === "no_face"
-              ? "We can't see your face. Please move back into the camera view."
-              : "Please keep your face towards the screen."}{" "}
-            {lookAway.remaining > 0
-              ? `${lookAway.remaining} warning${lookAway.remaining === 1 ? "" : "s"} left before the interview ends.`
-              : "This was your last warning. The interview will end if it happens again."}
-          </div>
+          <style>{"@keyframes friendlyReminder{0%,92%{opacity:1;visibility:visible}100%{opacity:0;visibility:hidden}}"}</style>
+          <div style={{ fontWeight: 800, fontSize: "15px" }}>Friendly reminder</div>
+          <div style={{ fontSize: "13px", marginTop: "2px", lineHeight: 1.45 }}>{reminder.text}</div>
+          {reminder.reshare && (
+            <button
+              type="button"
+              onClick={proctoring.requestScreenShare}
+              style={{ marginTop: "8px", padding: "6px 12px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.7)", background: "transparent", color: "#fff", fontWeight: 700, fontSize: "12px", cursor: "pointer" }}
+            >
+              Share screen again
+            </button>
+          )}
         </div>
       )}
 
@@ -418,10 +386,9 @@ export function BotInterviewAttemptClient({ interviewId }: { interviewId: string
 
         {stage === "terminated" && (
           <div style={{ ...cardStyle, textAlign: "center", display: "flex", flexDirection: "column", gap: "8px" }}>
-            <span style={{ fontSize: "16px", fontWeight: 800, color: "#dc2626" }}>Interview ended</span>
+            <span style={{ fontSize: "16px", fontWeight: 800, color: "#0f172a" }}>This interview is no longer open</span>
             <p style={{ fontSize: "13px", color: "#64748b", margin: 0 }}>
-              Your interview was ended automatically because {terminationReason ? VIOLATION_TEXT[terminationReason] : "a proctoring check failed"}.
-              Any answers you&apos;d already given were saved. Reach out to your recruiter if you think this was a mistake.
+              Any answers you had already given were saved. Please reach out to your recruiter if you think this is a mistake.
             </p>
           </div>
         )}
@@ -440,22 +407,6 @@ export function BotInterviewAttemptClient({ interviewId }: { interviewId: string
               <p style={{ fontSize: "13px", color: "var(--text-secondary)", margin: "4px 0 0" }}>
                 {attempt ? `Hi ${attempt.candidate_name}, let's get started.` : ""}
               </p>
-              {(stage === "question" || stage === "review") && (
-                <span
-                  style={{
-                    display: "inline-block",
-                    marginTop: "8px",
-                    padding: "3px 12px",
-                    borderRadius: "999px",
-                    fontSize: "12px",
-                    fontWeight: 700,
-                    color: lookAway.warnings > 0 ? "#b91c1c" : "#475569",
-                    border: `1px solid ${lookAway.warnings > 0 ? "#b91c1c" : "#cbd5e1"}`,
-                  }}
-                >
-                  Warnings: {Math.min(lookAway.warnings, maxWarnings)} of {maxWarnings}
-                </span>
-              )}
             </div>
 
             {stage === "intro" && (
@@ -488,13 +439,11 @@ export function BotInterviewAttemptClient({ interviewId }: { interviewId: string
                     You get one chance to revise each answer before moving on.
                   </li>
                   <li style={{ fontSize: "13px", color: "#334155" }}>
-                    This interview is proctored: your camera and screen share stay on throughout, and it
-                    will end automatically if you switch tabs/windows or screen sharing stops. Other AI
-                    tools (ChatGPT, etc.) are forbidden and monitored for.
+                    Your camera and screen share stay on while you answer, so the employer can see it&apos;s really you.
+                    Please stay on this page, keep your face towards the screen and answer in your own words.
                   </li>
                   <li style={{ fontSize: "13px", color: "#334155" }}>
-                    Keep your face towards the screen. If you turn away or leave the camera view you&apos;ll get
-                    a warning with an alert sound (you&apos;re allowed {maxWarnings}). After that the interview ends automatically.
+                    If you drift away you&apos;ll just get a friendly reminder. Nothing ends your interview automatically.
                   </li>
                   <li style={{ fontSize: "13px", color: "#334155" }}>
                     At the end you&apos;ll review your full set of answers before it&apos;s submitted.
@@ -564,11 +513,10 @@ export function BotInterviewAttemptClient({ interviewId }: { interviewId: string
             {stage === "setup" && (
               <div className="fade-in" style={{ ...cardStyle, display: "flex", flexDirection: "column", gap: "14px" }}>
                 <h2 style={{ fontSize: "16px", fontWeight: 800, color: "#0f172a", margin: 0 }}>
-                  Camera &amp; screen share required
+                  Camera &amp; screen share
                 </h2>
                 <p style={{ fontSize: "13px", color: "#64748b", margin: 0 }}>
-                  This interview is proctored. Enable your camera and share your screen to continue —
-                  both stay active for the whole interview.
+                  Turn on your camera and share your screen. They stay on while you answer so the employer can see it&apos;s really you.
                 </p>
 
                 <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
@@ -602,18 +550,16 @@ export function BotInterviewAttemptClient({ interviewId }: { interviewId: string
                 </div>
 
                 <p style={{ fontSize: "12px", color: "#64748b", margin: 0 }}>
-                  Next, a quick face verification: you&apos;ll look at the centre of the screen, then turn your face toward
-                  each of the four corners. It adapts to your screen size.
+                  Optional: you can do a quick face check first (look at the centre of the screen, then toward each corner).
+                  It helps the employer know it&apos;s you, and skipping it is completely fine.
                 </p>
-                {verifyError && (
-                  <p style={{ fontSize: "12px", color: "#dc2626", margin: 0 }} role="alert">
-                    {verifyError}
-                  </p>
-                )}
 
-                <div>
-                  <button type="button" style={primaryButtonStyle} onClick={beginVerification} disabled={!setupReady}>
-                    Verify &amp; Start Interview
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
+                  <button type="button" style={primaryButtonStyle} onClick={startInterview} disabled={!setupReady}>
+                    Start Interview
+                  </button>
+                  <button type="button" style={secondaryButtonStyle} onClick={beginVerification} disabled={!setupReady}>
+                    Do the optional face check first
                   </button>
                 </div>
               </div>

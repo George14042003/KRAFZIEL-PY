@@ -808,9 +808,8 @@ function InterviewRow({
             <p style={{ fontSize: "13px", color: "var(--text-2)", margin: 0, lineHeight: 1.55 }}>{interview.ai_evaluation.summary}</p>
             {interview.ai_evaluation.proctoring && (
               <p style={{ fontSize: "12px", color: "var(--text-3)", margin: "8px 0 0" }}>
-                Proctoring: {interview.ai_evaluation.proctoring.look_away_warnings} look-away warning
-                {interview.ai_evaluation.proctoring.look_away_warnings === 1 ? "" : "s"} of {interview.ai_evaluation.proctoring.max_warnings} allowed
-                ({interview.ai_evaluation.proctoring.experience_level} role)
+                Attention: reminded to face the screen {interview.ai_evaluation.proctoring.look_away_warnings} time
+                {interview.ai_evaluation.proctoring.look_away_warnings === 1 ? "" : "s"} during the interview
               </p>
             )}
           </div>

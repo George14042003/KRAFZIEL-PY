@@ -21,10 +21,10 @@ const CALIBRATION_MAX_MS = 6000;
 const TURNED_MS = 1500;
 const NO_FACE_MS = 2500;
 /** While someone stays away, they are warned again this often; after coming back, a new episode warns at once. */
-const REPEAT_WARNING_MS = 6000;
+const REPEAT_WARNING_MS = 15000;
 const RETURN_MS = 800;
 /** Never two warnings closer together than this, however quickly someone looks away and back. */
-const MIN_GAP_MS = 3000;
+const MIN_GAP_MS = 8000;
 
 const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[xs.length >> 1];
 
@@ -32,9 +32,10 @@ type Options = {
   /** Watching only runs while this is true (during the questions). */
   active: boolean;
   videoRef: React.RefObject<HTMLVideoElement | null>;
-  /** Warnings allowed. The warning after this many ends the interview. */
+  /** Reminders the role allows. Kept for the employer's record only: going past it changes nothing. */
   maxWarnings: number;
-  onExceeded: () => void;
+  /** Optional hook for callers that want to react when the allowance is passed. */
+  onExceeded?: () => void;
 };
 
 /** Counts how many times the candidate turns their face away from the screen (or leaves the frame) and plays a
@@ -132,7 +133,7 @@ export function useLookAwayWarnings({ active, videoRef, maxWarnings, onExceeded 
           setWarnings(count);
           setLatest({ n: count, reason: awayReason, at: Date.now() });
           playWarningSound();
-          if (count > maxRef.current) {
+          if (count > maxRef.current && exceededRef.current) {
             ended = true;
             exceededRef.current();
           }

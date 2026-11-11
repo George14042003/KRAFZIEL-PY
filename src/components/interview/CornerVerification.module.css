@@ -239,3 +239,23 @@
     display: none;
   }
 }
+
+.skip {
+  min-height: 40px;
+  padding: 0 18px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.skip:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+.skip:focus-visible {
+  outline: 2px solid #00b4ff;
+  outline-offset: 2px;
+}
