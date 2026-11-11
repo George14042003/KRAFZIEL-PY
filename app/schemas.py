@@ -2,8 +2,9 @@ from datetime import date, datetime
 from typing import Annotated, List, Literal, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field, StringConstraints, field_validator
+from pydantic import BaseModel, EmailStr, Field, StringConstraints, field_serializer, field_validator
 
+from app.media_access import sign_media_url
 from app.models import (
     AvailabilityStatus,
     CandidateStatus,
@@ -175,6 +176,10 @@ class InterviewPortalOut(BaseModel):
     location_or_link: Optional[str]
     ai_evaluation: Optional[dict] = None
     recording_urls: Optional[List[str]] = None
+
+    @field_serializer("recording_urls")
+    def _sign_recordings(self, value):
+        return [sign_media_url(u) for u in value] if value else value
 
     class Config:
         from_attributes = True
@@ -357,6 +362,19 @@ class InterviewOut(BaseModel):
     employer_rating: Optional[int] = None
     created_at: datetime
     updated_at: datetime
+
+    # Media links leave the API signed and short-lived, so only people shown this interview can open the files.
+    @field_serializer("recording_urls")
+    def _sign_recordings(self, value):
+        return [sign_media_url(u) for u in value] if value else value
+
+    @field_serializer("identity_snapshot_url")
+    def _sign_snapshot(self, value):
+        return sign_media_url(value)
+
+    @field_serializer("face_scan_urls")
+    def _sign_face_scans(self, value):
+        return [{"angle": shot.angle, "url": sign_media_url(shot.url)} for shot in value] if value else value
 
     class Config:
         from_attributes = True

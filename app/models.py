@@ -17,9 +17,28 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
-from sqlalchemy.orm import object_session, relationship
+from sqlalchemy import cast, inspect as sa_inspect, null
+from sqlalchemy.orm import column_property, object_session, relationship
 
-from app.database import Base
+from app.database import Base, engine
+
+
+def _existing_columns(table: str) -> set:
+    try:
+        return {c["name"] for c in sa_inspect(engine).get_columns(table)}
+    except Exception:
+        return set()
+
+
+_JOB_COLS = _existing_columns("jobs")
+_APP_COLS = _existing_columns("job_applications")
+
+
+def _optional(present: set, name: str, real_column, sql_type):
+    """The real column once the database update has been applied; until then it reads as empty and is left out of writes."""
+    if not present or name in present:
+        return real_column
+    return column_property(cast(null(), sql_type))
 
 
 class CandidateStatus(str, enum.Enum):
@@ -337,7 +356,7 @@ class Job(Base):
     salary_min = Column(Integer, nullable=True)
     salary_max = Column(Integer, nullable=True)
     # Minimum years of experience the role asks for; also sets how many look-away warnings the bot interview allows.
-    experience_min_years = Column(Integer, nullable=True)
+    experience_min_years = _optional(_JOB_COLS, "experience_min_years", Column(Integer, nullable=True), Integer)
     created_by = Column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
@@ -372,11 +391,11 @@ class JobApplication(Base):
     cover_letter = Column(Text, nullable=True)
     notes = Column(Text, nullable=True)
     # Application-level resume: the uploaded .doc/.docx is read once and kept as structured data (the file itself is not kept).
-    resume_filename = Column(String, nullable=True)
-    resume_data = Column(JSONB, nullable=True)
-    resume_text = Column(Text, nullable=True)
-    portfolio_url = Column(String, nullable=True)
-    portfolio_data = Column(JSONB, nullable=True)
+    resume_filename = _optional(_APP_COLS, "resume_filename", Column(String, nullable=True), String)
+    resume_data = _optional(_APP_COLS, "resume_data", Column(JSONB, nullable=True), JSONB)
+    resume_text = _optional(_APP_COLS, "resume_text", Column(Text, nullable=True), Text)
+    portfolio_url = _optional(_APP_COLS, "portfolio_url", Column(String, nullable=True), String)
+    portfolio_data = _optional(_APP_COLS, "portfolio_data", Column(JSONB, nullable=True), JSONB)
     created_by = Column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )

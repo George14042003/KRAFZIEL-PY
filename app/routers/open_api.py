@@ -35,6 +35,8 @@ from fastapi import (
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
+from app.media_access import sign_media_url
+
 SECRET_KEY = os.environ["SECRET_KEY"]
 TURN_KEY_ID = os.environ.get("TURN_KEY_ID")
 TURN_API_TOKEN = os.environ.get("TURN_API_TOKEN")
@@ -206,7 +208,7 @@ def _recordings(room_id: str) -> list[dict]:
         out.append(
             {
                 "file": fn,
-                "url": f"/media/open-recordings/{room_id}/{fn}",
+                "url": sign_media_url(f"/media/open-recordings/{room_id}/{fn}"),
                 "bytes": os.path.getsize(full),
                 "recorded_at": datetime.fromtimestamp(os.path.getmtime(full), timezone.utc).isoformat(),
             }
@@ -278,7 +280,7 @@ async def upload_recording(room_id: str, token: str = Query(...), file: UploadFi
     finally:
         if not out.closed:
             await run_in_threadpool(out.close)
-    return {"url": f"/media/open-recordings/{room_id}/{filename}", "bytes": size}
+    return {"url": sign_media_url(f"/media/open-recordings/{room_id}/{filename}"), "bytes": size}
 
 
 @router.get("/ice-servers")

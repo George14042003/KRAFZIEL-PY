@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app import ai, models, portfolio, proctor_policy, resume_parser, schemas
 from app.database import SessionLocal, get_db
+from app.media_access import sign_media_url
 from app.email import (
     FRONTEND_URL,
     send_availability_request_email,
@@ -51,12 +52,8 @@ def _remove_media(url: str | None, directory: str) -> None:
 
 router = APIRouter(tags=["candidates"])
 
-# The client pings /interviews/{id}/heartbeat every 5s while a bot interview
-# attempt is in progress. Anything longer than this between two heartbeats
-# (or between the last heartbeat and a submit/terminate call) means the
-# client stopped reporting in for long enough that it isn't just network
-# jitter — treated as tampering or an abandoned session either way.
-MAX_HEARTBEAT_GAP_SECONDS = 45
+# The client pings /interviews/{id}/heartbeat every few seconds while a bot interview is in progress. The ping is only
+# recorded: a slow connection, a reload or a sleeping laptop must never cost a candidate their interview.
 
 # Auto-screening: a completed bot interview is scored 0-100 (mean of the AI's
 # 1-10 dimension scores x 10). Below the cutoff the candidate is auto-rejected;
@@ -699,7 +696,7 @@ async def upload_identity_snapshot(
     _remove_media(interview.identity_snapshot_url, IDENTITY_SNAPSHOTS_DIR)
     interview.identity_snapshot_url = url
     db.commit()
-    return {"url": url}
+    return {"url": sign_media_url(url)}
 
 
 @router.post("/interviews/{interview_id}/face-scan")
@@ -754,7 +751,7 @@ async def upload_face_scan(
     # so a reload or reopened tab is not cancelled for the time spent coming back through setup.
     interview.last_heartbeat_at = None
     db.commit()
-    return {"face_scan_urls": urls}
+    return {"face_scan_urls": [{"angle": u["angle"], "url": sign_media_url(u["url"])} for u in urls]}
 
 
 # --- Bot interview attempt (public, no login — candidate-facing) -------------
@@ -886,11 +883,6 @@ def submit_interview_attempt(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Please accept the consent form before submitting.",
         )
-    if not interview.face_scan_done:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Please complete the face verification before submitting.",
-        )
     asked = [str(q).strip() for q in (interview.questions or ai.DEFAULT_QUESTIONS)]
     if len(payload.answers) > len(asked) or any(a.question.strip() not in asked for a in payload.answers):
         raise HTTPException(
@@ -901,31 +893,6 @@ def submit_interview_attempt(
     transcript = "Krafziel Bot Interview Transcript\n\n" + "\n\n".join(
         f"{i + 1}. Q: {p['question']}\n   A: {p['answer']}" for i, p in enumerate(qa_pairs)
     )
-
-    # Server-side half of proctoring: even if the client's own violation
-    # detection got tampered with (see /heartbeat below), a submission that
-    # arrives after its heartbeats went stale for too long is cancelled
-    # instead of completed, and skipped for AI evaluation.
-    # A client that never sent a heartbeat is treated the same as one whose heartbeats stopped.
-    if interview.last_heartbeat_at is None or (
-        datetime.utcnow() - interview.last_heartbeat_at > timedelta(seconds=MAX_HEARTBEAT_GAP_SECONDS)
-    ):
-        interview.status = models.InterviewStatus.CANCELLED
-        interview.notes = transcript + "\n\n[TERMINATED by server: heartbeat gap exceeded before submission]"
-        db.commit()
-        db.refresh(interview)
-        candidate = _get_candidate(db, interview.candidate_id)
-        return schemas.InterviewAttemptOut(
-            candidate_name=candidate.applicant_name,
-            interview_type=interview.interview_type,
-            status=interview.status,
-            scheduled_at=interview.scheduled_at,
-            duration_minutes=interview.duration_minutes,
-            questions=interview.questions or [],
-            availability_status=interview.availability_status,
-            consent_accepted=interview.consent_accepted,
-            **_god_fields(db, interview),
-        )
 
     # Claim the submission atomically so a double submit cannot enqueue two evaluations.
     claim = {"status": models.InterviewStatus.COMPLETED, "notes": transcript}
@@ -1023,11 +990,8 @@ def heartbeat_interview_attempt(
     db: Session = Depends(get_db),
     _access: models.Interview = Depends(require_interview_candidate),
 ):
-    """Pinged every few seconds by the candidate's browser while a bot interview
-    attempt is in progress. This is the server-side half of proctoring: the
-    tab-switch/face/screen-share checks all live in the browser and could in
-    theory be tampered with, but a heartbeat gap this large gets caught here
-    regardless of what the client reports (or stops reporting)."""
+    """Pinged every few seconds by the candidate's browser while a bot interview is in progress.
+    It only records that the candidate is still there; it never ends the interview."""
     interview = _get_interview(db, interview_id)
     if interview.interview_type != models.InterviewType.BOT:
         raise HTTPException(
@@ -1037,17 +1001,6 @@ def heartbeat_interview_attempt(
         return schemas.InterviewHeartbeatOut(status=interview.status, terminated=False)
 
     now = datetime.utcnow()
-    if interview.last_heartbeat_at and now - interview.last_heartbeat_at > timedelta(
-        seconds=MAX_HEARTBEAT_GAP_SECONDS
-    ):
-        interview.status = models.InterviewStatus.CANCELLED
-        interview.notes = (
-            f"{interview.notes}\n\n" if interview.notes else ""
-        ) + "[TERMINATED by server: heartbeat gap exceeded — the client stopped reporting in for too long]"
-        db.commit()
-        db.refresh(interview)
-        return schemas.InterviewHeartbeatOut(status=interview.status, terminated=True)
-
     interview.last_heartbeat_at = now
     db.commit()
     return schemas.InterviewHeartbeatOut(status=interview.status, terminated=False)

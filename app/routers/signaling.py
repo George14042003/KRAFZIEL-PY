@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app import ai, models, schemas
 from app.database import SessionLocal, get_db
+from app.media_access import sign_media_url
 from app.security import (
     get_current_user,
     interview_party,
@@ -97,7 +98,7 @@ async def upload_recording(
 
     await run_in_threadpool(_save)
 
-    return {"url": url}
+    return {"url": sign_media_url(url)}
 
 
 # Below this, a live-call transcript (accumulated client-side from browser

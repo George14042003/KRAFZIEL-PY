@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.database import get_db
+from app.rate_limit import AttemptLimiter
 from app.email import send_password_reset_email, send_verification_email
 from app.security import (
     create_access_token,
@@ -22,6 +23,18 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
 _DUMMY_HASH = hash_password("timing-equaliser")
+
+# Brakes on guessing: 8 wrong passwords for one account, or 5 reset requests for one email, in 10 minutes.
+LOGIN_LIMITER = AttemptLimiter(limit=8, window_seconds=600)
+RESET_LIMITER = AttemptLimiter(limit=5, window_seconds=600)
+
+
+def _too_many(retry_after: int) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        detail="Too many attempts. Please wait a few minutes and try again.",
+        headers={"Retry-After": str(retry_after)},
+    )
 
 VERIFY_EMAIL_PURPOSE = "verify_email"
 RESET_PASSWORD_PURPOSE = "reset_password"
@@ -107,6 +120,10 @@ def register_employer(
 
 @router.post("/login", response_model=schemas.TokenResponse)
 def login(payload: schemas.LoginRequest, db: Session = Depends(get_db)):
+    limit_key = f"{getattr(payload.role, 'value', payload.role)}:{payload.email.strip().lower()}"
+    retry = LOGIN_LIMITER.retry_after(limit_key)
+    if retry:
+        raise _too_many(retry)
     user = db.query(models.User).filter(models.User.email == payload.email).first()
     if user is None or user.role != payload.role:
         # Same bcrypt cost as a real check so response time doesn't reveal which emails exist.
@@ -116,9 +133,11 @@ def login(payload: schemas.LoginRequest, db: Session = Depends(get_db)):
         or user.role != payload.role
         or not verify_password(payload.password, user.hashed_password)
     ):
+        LOGIN_LIMITER.record(limit_key)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password."
         )
+    LOGIN_LIMITER.reset(limit_key)
 
     if not user.is_verified:
         raise HTTPException(
@@ -174,6 +193,11 @@ def forgot_password(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
+    reset_key = payload.email.strip().lower()
+    retry = RESET_LIMITER.retry_after(reset_key)
+    if retry:
+        raise _too_many(retry)
+    RESET_LIMITER.record(reset_key)
     user = db.query(models.User).filter(models.User.email == payload.email).first()
     if user is not None:
         token = create_purpose_token(
@@ -196,6 +220,12 @@ def reset_password(payload: schemas.ResetPasswordRequest, db: Session = Depends(
 
 
 def _verify_google_access_token(access_token: str) -> dict:
+    # Without our own client id we cannot tell a token issued for this app from one issued for any other app,
+    # so Google sign-in stays off until GOOGLE_CLIENT_ID is set.
+    if not GOOGLE_CLIENT_ID:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Google sign-in is not set up yet."
+        )
     try:
         resp = httpx.get(
             "https://oauth2.googleapis.com/tokeninfo",
@@ -213,7 +243,7 @@ def _verify_google_access_token(access_token: str) -> dict:
         )
 
     info = resp.json()
-    if GOOGLE_CLIENT_ID and info.get("aud") != GOOGLE_CLIENT_ID:
+    if info.get("aud") != GOOGLE_CLIENT_ID:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Google token was not issued for this app.",

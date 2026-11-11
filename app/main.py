@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from app.media_access import MediaAccessMiddleware
 from app.transport_crypto import TransportCryptoMiddleware
 from app.routers import (
     admin_billing,
@@ -43,6 +44,9 @@ extra_origins = [
 # Optional payload/response encryption (ENCRYPT_API=optional|required; off by default). Added before CORS so
 # CORS wraps it and its rekey/error responses still carry the CORS headers.
 app.add_middleware(TransportCryptoMiddleware)
+
+# Uploaded media (recordings, face scans, snapshots) is only reachable through signed, expiring links.
+app.add_middleware(MediaAccessMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
