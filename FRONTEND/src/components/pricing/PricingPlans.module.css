@@ -1,0 +1,402 @@
+/* Shared plan cards for the home page ("home", light) and /pricing ("aurora", dark glass). Only the tokens differ. */
+
+.root {
+  min-width: 0;
+}
+.aurora {
+  --pp-text: var(--text);
+  --pp-text-2: var(--text-2);
+  --pp-text-3: var(--text-3);
+  --pp-text-4: var(--text-4);
+  --pp-line: var(--line-soft);
+  --pp-accent: var(--accent);
+  --pp-accent-ink: var(--accent-ink);
+  --pp-on-accent: var(--on-accent);
+  --pp-card-bg: transparent; /* the glass class supplies the surface */
+  --pp-card-border: transparent;
+  --pp-card-radius: 32px;
+  --pp-cta-bg: var(--text);
+  --pp-cta-fg: var(--on-ink);
+  --pp-cta-radius: 999px;
+  --pp-error: #fb7185;
+  --pp-demo-bg: color-mix(in srgb, var(--accent) 14%, transparent);
+  --pp-demo-fg: var(--accent-ink);
+}
+.home {
+  --pp-text: #0f172a;
+  --pp-text-2: #334155;
+  --pp-text-3: #5b6472;
+  --pp-text-4: #64748b;
+  --pp-line: #e5e7eb;
+  --pp-accent: #0066ff;
+  --pp-accent-ink: #0066ff;
+  --pp-on-accent: #fff;
+  --pp-card-bg: #fff;
+  --pp-card-border: #e5e7eb;
+  --pp-card-radius: 18px;
+  --pp-cta-bg: #fff;
+  --pp-cta-fg: #1f2937;
+  --pp-cta-radius: 12px;
+  --pp-error: #b4233f;
+  --pp-demo-bg: rgba(0, 102, 255, 0.09);
+  --pp-demo-fg: #0a4fc4;
+}
+
+/* ---------- Controls ---------- */
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px 16px;
+  margin: 0 auto 28px;
+  text-align: center;
+}
+.toggle {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+  padding: 5px;
+  max-width: 100%;
+  box-sizing: border-box;
+  border-radius: 999px;
+  background: #14162b;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.toggleBtn,
+.toggleOn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 20px;
+  border-radius: 999px;
+  border: 0;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.toggleBtn {
+  background: transparent;
+  color: #c9cde0;
+}
+.toggleBtn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+.toggleOn {
+  background: var(--pp-accent);
+  color: var(--pp-on-accent);
+}
+.toggleBtn:focus-visible,
+.toggleOn:focus-visible,
+.cta:focus-visible,
+.retry:focus-visible {
+  outline: 2px solid var(--pp-accent);
+  outline-offset: 3px;
+}
+.save {
+  padding: 2px 9px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(0, 180, 255, 0.18);
+  color: #00b4ff;
+}
+.toggleOn .save {
+  background: rgba(255, 255, 255, 0.22);
+  color: inherit;
+}
+.note,
+.demoNote {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 14px;
+  color: var(--pp-text-3);
+}
+.demoNote {
+  flex-basis: auto;
+  max-width: 100%;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: var(--pp-demo-bg);
+  color: var(--pp-demo-fg);
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.root .included {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 28px auto 0;
+  padding: 0 12px;
+  max-width: 760px;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--pp-text-3);
+}
+.error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 0 0 20px;
+  font-size: 14px;
+  color: var(--pp-error);
+}
+.retry {
+  min-height: 36px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* ---------- Cards ---------- */
+
+.plans {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  align-items: stretch;
+}
+@media (max-width: 1100px) {
+  .plans {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  .plans {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.cardWrap {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.cardWrap > * {
+  flex: 1;
+}
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 28px 24px;
+  border-radius: var(--pp-card-radius);
+  box-sizing: border-box;
+  min-width: 0;
+  color: var(--pp-text);
+  text-align: left;
+  transition: transform 0.25s, border-color 0.25s, box-shadow 0.25s;
+}
+.home .card {
+  background: var(--pp-card-bg);
+  border: 1px solid var(--pp-card-border);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px -12px rgba(15, 23, 42, 0.1);
+}
+.card:hover {
+  transform: translateY(-4px);
+}
+.aurora .card:hover {
+  border-color: var(--line-2);
+  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.35);
+}
+.aurora.root .featured,
+.aurora.root .featured:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), 0 0 60px color-mix(in srgb, var(--accent) 22%, transparent);
+  background:
+    radial-gradient(360px 240px at 100% 0%, rgba(0, 102, 255, 0.5), transparent 70%),
+    var(--glass);
+}
+.home .featured {
+  --pp-text: #fff;
+  --pp-text-2: #e5e7eb;
+  --pp-text-3: #a9b3c5;
+  --pp-text-4: #a9b3c5;
+  --pp-line: rgba(255, 255, 255, 0.14);
+  --pp-accent-ink: #00b4ff;
+  --pp-cta-bg: #0066ff;
+  --pp-cta-fg: #fff;
+  background: linear-gradient(160deg, #0f172a 0%, #13224a 100%);
+  border-color: #0f172a;
+  box-shadow: 0 0 0 1px rgba(0, 180, 255, 0.5), 0 30px 60px -24px rgba(0, 102, 255, 0.55);
+}
+.aurora .featured {
+  --pp-cta-bg: var(--accent);
+  --pp-cta-fg: var(--on-accent);
+}
+.badge,
+.badgeSpace {
+  align-self: flex-start;
+  height: 26px;
+  margin-bottom: 14px;
+  box-sizing: border-box;
+}
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 12px;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--pp-accent);
+  color: var(--pp-on-accent);
+}
+.home .badge {
+  background: rgba(0, 229, 255, 0.15);
+  color: #00e5ff;
+  letter-spacing: 0.04em;
+}
+.planName {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: var(--pp-text);
+}
+.aurora .planName,
+.aurora .price {
+  font-family: var(--font-display);
+}
+.root .tagline {
+  margin: 6px 0 18px;
+  min-height: 42px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--pp-text-3);
+}
+.priceRow {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-height: 76px;
+}
+.price {
+  font-size: clamp(34px, 3.4vw, 44px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--pp-text);
+}
+.per {
+  font-size: 14px;
+  color: var(--pp-text-3);
+}
+.root .billed {
+  margin: 6px 0 18px;
+  min-height: 18px;
+  font-size: 12px;
+  color: var(--pp-text-4);
+}
+.cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 16px;
+  margin-bottom: 22px;
+  box-sizing: border-box;
+  border-radius: var(--pp-cta-radius);
+  border: 1px solid transparent;
+  background: var(--pp-cta-bg);
+  color: var(--pp-cta-fg);
+  font-weight: 600;
+  font-size: 14px;
+  text-align: center;
+  line-height: 1.25;
+  transition: transform 0.15s, filter 0.15s;
+}
+.home .cta {
+  border-color: #d1d5db;
+}
+.home .featured .cta {
+  border-color: transparent;
+}
+.cta:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.07);
+}
+.ctaOff {
+  opacity: 0.5;
+  pointer-events: none;
+}
+.features {
+  list-style: none;
+  margin: 0;
+  padding: 20px 0 0;
+  border-top: 1px solid var(--pp-line);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.features li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--pp-text-2);
+  min-width: 0;
+}
+.strong {
+  font-weight: 600;
+}
+.check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--pp-accent-ink) 16%, transparent);
+  color: var(--pp-accent-ink);
+}
+
+/* Placeholder price while the catalog loads */
+.skeleton {
+  color: transparent;
+  border-radius: 8px;
+  background: linear-gradient(90deg, rgba(128, 138, 160, 0.18), rgba(128, 138, 160, 0.34), rgba(128, 138, 160, 0.18));
+  background-size: 200% 100%;
+  animation: ppShimmer 1.4s linear infinite;
+}
+@keyframes ppShimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+  .card,
+  .cta,
+  .toggleBtn,
+  .toggleOn {
+    transition: none;
+  }
+  .card:hover,
+  .cta:hover {
+    transform: none;
+  }
+}

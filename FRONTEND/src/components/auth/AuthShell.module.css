@@ -1,0 +1,651 @@
+.stage {
+  position: relative;
+  z-index: 1;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  box-sizing: border-box;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  padding: 0;
+}
+.grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-content: stretch;
+  gap: 0;
+  padding: 0 16px;
+  height: 100%;
+}
+@media (min-width: 960px) {
+  .grid {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    gap: 0;
+    grid-template-rows: minmax(0, 1fr);
+    padding: 0;
+    justify-items: stretch;
+    align-items: stretch;
+    align-content: stretch;
+  }
+}
+
+/* ---- left column ---- */
+.hero {
+  display: none;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  flex-direction: column;
+  justify-content: center;
+  gap: clamp(10px, 2vh, 22px);
+  padding: clamp(20px, 4vh, 48px) max(40px, 5vw);
+  min-height: 0;
+  color: #ffffff;
+  background-color: #0f172a;
+  background-image: linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+.hero::before,
+.hero::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.hero::before {
+  top: -260px;
+  right: -160px;
+  width: 700px;
+  height: 700px;
+  background: radial-gradient(circle, rgba(0, 102, 255, 0.55), transparent 62%);
+}
+.hero::after {
+  bottom: -340px;
+  left: 10%;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(0, 229, 255, 0.26), transparent 62%);
+}
+.hero > * {
+  max-width: 560px;
+}
+/* handshake footage behind the copy, tinted navy so the text stays readable */
+.hero > .heroVideoBg {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  max-width: none;
+  overflow: hidden;
+}
+.heroVideo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.heroVideoBg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.78), rgba(15, 23, 42, 0.9)),
+    radial-gradient(circle at 80% 0%, rgba(0, 102, 255, 0.35), transparent 60%);
+}
+@media (prefers-reduced-motion: reduce) {
+  .heroVideo {
+    display: none;
+  }
+}
+@media (min-width: 960px) {
+  .hero {
+    display: flex;
+  }
+}
+.brandPill {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+}
+.brandPill {
+  gap: clamp(12px, 1.8vh, 18px);
+}
+.brandPill img {
+  display: block;
+  height: clamp(42px, 6.4vh, 60px);
+  width: auto;
+}
+.brandDivider {
+  display: block;
+  flex: none;
+  width: 1px;
+  height: clamp(32px, 5vh, 48px);
+  background: rgba(255, 255, 255, 0.3);
+}
+.mobileBrand {
+  align-self: stretch;
+  justify-content: center;
+  margin: 0 -16px;
+  min-height: clamp(60px, 9.5vh, 76px);
+  background: #0f172a;
+}
+@media (min-width: 960px) {
+  .mobileBrand {
+    display: none;
+  }
+}
+.headline {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(28px, min(4vw, 5.4vh), 54px);
+  line-height: 1.08;
+  letter-spacing: -0.035em;
+  color: #ffffff;
+}
+.subhead {
+  margin: 0;
+  font-size: clamp(13px, 1.9vh, 16px);
+  line-height: 1.5;
+  color: #c7cdd8;
+  max-width: 460px;
+}
+.features {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(5px, 1.1vh, 10px);
+  max-width: 480px;
+}
+.feature {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: clamp(7px, 1.3vh, 12px) 16px;
+  border-radius: 12px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #e5e7eb;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+.featureIcon {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #0066ff, #00b4ff);
+  color: #ffffff;
+}
+.copyright {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #9aa3b5;
+}
+
+/* ---- card ---- */
+.cardCol {
+  width: 100%;
+  max-width: 480px;
+  min-height: 0;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: clamp(6px, 1.2vh, 14px);
+  /* Fits without scrolling on any normal screen; only a very short window scrolls inside the card. */
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.cardCol::-webkit-scrollbar {
+  display: none;
+}
+.cardCol > .card {
+  flex: none;
+}
+@media (min-width: 960px) {
+  .cardCol {
+    justify-self: center;
+    padding: clamp(12px, 3vh, 48px) 24px;
+  }
+}
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(8px, 1.6vh, 18px);
+  padding: clamp(14px, 2.8vh, 30px);
+  border-radius: 18px;
+}
+@media (max-width: 480px) {
+  .card {
+    padding: clamp(14px, 2.6vh, 22px) 16px;
+  }
+}
+/* Controls scale with the screen height so the whole form stays on one screen */
+.stage .card input:not([type="checkbox"]):not([type="radio"]),
+.stage .card select {
+  min-height: clamp(36px, 4.6vh, 44px);
+  font-size: 14px;
+}
+.stage .card [class*="btn"][class] {
+  min-height: clamp(38px, 4.8vh, 46px);
+  font-size: 14px;
+}
+.cardCenter {
+  align-items: center;
+  text-align: center;
+}
+.legal {
+  margin: 0;
+  text-align: center;
+  font-size: 11.5px;
+  color: var(--text-4);
+}
+
+/* ---- card contents ---- */
+.tabs {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--fill);
+  border: 1px solid var(--line);
+}
+.tab {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: color 0.3s ease;
+}
+.tab:hover {
+  color: var(--text);
+}
+.tabActive,
+.tabActive:hover {
+  color: var(--on-ink);
+}
+.pill {
+  position: absolute;
+  z-index: 0;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc((100% - 12px) / 2);
+  border-radius: 9px;
+  background: var(--text);
+  transform: translateX(0);
+  transition: transform 0.38s cubic-bezier(0.3, 0.8, 0.25, 1);
+  will-change: transform;
+}
+.tabs[data-role="employer"] .pill {
+  transform: translateX(calc(100% + 4px));
+}
+
+/* role-dependent text: both variants stacked in one cell */
+.swap {
+  display: grid;
+  justify-items: inherit;
+}
+.swap > span {
+  grid-area: 1 / 1;
+  transition: opacity 0.22s ease, transform 0.3s ease, visibility 0s linear 0.22s;
+}
+.swapOff {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(5px);
+  pointer-events: none;
+  user-select: none;
+}
+.swapOn {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition-delay: 0.1s, 0.1s, 0s;
+}
+button > .swap {
+  justify-items: center;
+}
+
+/* collapsible form row (employer-only fields) that keeps its input mounted */
+.collapse {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.38s cubic-bezier(0.3, 0.8, 0.25, 1), opacity 0.3s ease, margin-bottom 0.38s cubic-bezier(0.3, 0.8, 0.25, 1);
+}
+.collapseClosed {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  margin-bottom: calc(-1 * var(--fg, 0px));
+}
+.collapseInner {
+  min-height: 0;
+  overflow: hidden;
+  margin: -4px;
+  padding: 4px;
+}
+
+/* hero copy swap */
+.heroCopy {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(10px, 2vh, 22px);
+  transition: opacity 0.17s ease, transform 0.17s ease;
+}
+.heroOut {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+.rise {
+  animation: heroRise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+  animation-delay: var(--d, 0s);
+}
+@keyframes heroRise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.heroTints {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  max-width: none;
+  pointer-events: none;
+}
+.tint {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.7s ease;
+}
+.tintOn {
+  opacity: 1;
+}
+.tintCandidate {
+  background: radial-gradient(circle at 85% 8%, rgba(0, 102, 255, 0.28), transparent 55%);
+}
+.tintEmployer {
+  background: radial-gradient(circle at 12% 12%, rgba(124, 58, 237, 0.3), transparent 55%),
+    radial-gradient(circle at 90% 90%, rgba(0, 229, 255, 0.16), transparent 55%);
+}
+/* Aurora switches all motion off under reduced-motion; the role switch keeps a short plain fade instead. */
+@media (prefers-reduced-motion: reduce) {
+  .stage .pill,
+  .stage .collapse,
+  .stage .tint {
+    transition: transform 0.15s ease, grid-template-rows 0.15s ease, margin-bottom 0.15s ease, opacity 0.15s ease !important;
+  }
+  .stage .swap > span {
+    transform: none;
+    transition: opacity 0.15s ease, visibility 0s linear 0.15s !important;
+  }
+  .stage .swapOn {
+    transition-delay: 0s !important;
+  }
+  .stage .heroCopy {
+    transform: none;
+    transition: opacity 0.15s ease !important;
+  }
+  .stage .rise {
+    animation: heroFade 0.15s ease backwards !important;
+    animation-delay: 0s !important;
+  }
+  @keyframes heroFade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}
+.title {
+  margin: 0 0 4px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(19px, 2.9vh, 24px);
+  letter-spacing: -0.025em;
+  color: var(--text);
+}
+.sub {
+  margin: 0;
+  font-size: clamp(12px, 1.7vh, 13.5px);
+  line-height: 1.4;
+  color: var(--text-3);
+}
+.form {
+  --fg: clamp(7px, 1.4vh, 14px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--fg);
+}
+.rowBetween {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.link {
+  color: var(--accent-ink);
+  font-weight: 600;
+  font-size: 13px;
+  text-decoration: none;
+}
+.link:hover {
+  text-decoration: underline;
+}
+.linkBtn {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  color: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.linkBtn:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+.check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-2);
+  cursor: pointer;
+}
+.check input {
+  width: 16px;
+  height: 16px;
+  margin: 1px 0 0;
+  flex: none;
+  accent-color: var(--accent);
+}
+.err,
+.ok {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.err {
+  color: #c4123a;
+  background: #ffe9ee;
+  border: 1px solid #ffc2cf;
+}
+.ok {
+  color: #0b7a4b;
+  background: #e7f8ef;
+  border: 1px solid #b6e8cf;
+}
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--text-4);
+}
+.divider::before,
+.divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line-strong);
+}
+.foot {
+  margin: 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-3);
+}
+.foot .link {
+  font-weight: 700;
+}
+.full {
+  width: 100%;
+}
+.iconCircle {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--fill);
+  border: 1.5px dashed var(--line-2);
+  color: var(--accent-ink);
+}
+.strong {
+  color: var(--text);
+  font-weight: 600;
+}
+.centerText {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-3);
+}
+
+/* Labels, helper text and the divider scale down with the controls */
+.stage .card label {
+  font-size: 12.5px;
+}
+.check,
+.foot {
+  font-size: 12.5px;
+}
+.copyright {
+  margin: 0;
+}
+
+@media (max-width: 959px) {
+  /* logo sits left so the "Home page" button on the right never covers it */
+  .mobileBrand {
+    justify-content: flex-start;
+    padding-left: 16px;
+  }
+  .mobileBrand img {
+    height: clamp(28px, 4.4vh, 36px);
+    margin-left: 14px;
+  }
+}
+@media (max-width: 380px) {
+  .mobileBrand img {
+    height: 26px;
+  }
+}
+
+/* "Home page" button, top right corner of every auth screen */
+.homeBtn {
+  position: absolute;
+  top: clamp(12px, 2.4vh, 22px);
+  right: clamp(14px, 2vw, 28px);
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: clamp(36px, 4.8vh, 42px);
+  padding: 0 16px;
+  border-radius: 10px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #1f2937;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  transition: background 0.15s, border-color 0.15s, transform 0.15s;
+}
+.homeBtn:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+  transform: translateY(-1px);
+}
+.homeBtn:focus-visible {
+  outline: 2px solid #0066ff;
+  outline-offset: 2px;
+}
+/* On phones the top of the screen is the navy logo bar, so the button goes light-on-dark */
+@media (max-width: 959px) {
+  .homeBtn {
+    top: clamp(10px, 1.8vh, 16px);
+    right: 28px;
+    height: 36px;
+    padding: 0 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.28);
+    color: #ffffff;
+    box-shadow: none;
+  }
+  .homeBtn:hover {
+    background: rgba(255, 255, 255, 0.18);
+    border-color: rgba(255, 255, 255, 0.45);
+  }
+}
+
+/* Very small phones: the button becomes icon-only so it never covers the logo */
+@media (max-width: 420px) {
+  .homeLabel {
+    display: none;
+  }
+  .homeBtn {
+    width: 36px;
+    padding: 0;
+    justify-content: center;
+  }
+}

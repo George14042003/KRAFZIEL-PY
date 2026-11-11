@@ -1,0 +1,13 @@
+.logo {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  max-width: 100%;
+}
+.logo img {
+  display: block;
+  flex: none;
+  width: auto;
+  max-width: none;
+  height: 36px;
+}

@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+  @font-face {
+    font-family: "Inter";
+    src: local("Inter");
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 1920px;
+    height: 1080px;
+    overflow: hidden;
+    background: #061b26;
+    font-family: "Segoe UI", "Inter", -apple-system, Arial, sans-serif;
+  }
+
+  #stage {
+    position: relative;
+    width: 1920px;
+    height: 1080px;
+    background:
+      radial-gradient(1100px 700px at 78% 12%, rgba(21,122,143,0.35), transparent 60%),
+      radial-gradient(900px 650px at 12% 92%, rgba(15,107,92,0.30), transparent 60%),
+      linear-gradient(160deg, #061b26 0%, #0a275f 46%, #024b52 100%);
+    overflow: hidden;
+  }
+
+  /* decorative SVG backdrop */
+  #backdrop { position: absolute; inset: 0; }
+
+  #brandRow {
+    position: absolute;
+    top: 64px;
+    left: 90px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    opacity: 0.92;
+  }
+  #brandMark {
+    width: 34px; height: 34px; border-radius: 9px;
+    background: linear-gradient(135deg, #2a9d86, #157a8f);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+  }
+  #brandText {
+    font-size: 21px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    color: #eaf6f4;
+    text-transform: uppercase;
+  }
+  #brandText span { color: #7fd9c9; }
+
+  #slideLayer {
+    position: absolute;
+    inset: 0;
+  }
+
+  .slide {
+    position: absolute;
+    left: 0; top: 0; width: 1920px; height: 1080px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 0 90px 0 150px;
+    opacity: 0;
+    will-change: opacity, transform;
+  }
+
+  .badge {
+    width: 118px; height: 118px;
+    border-radius: 32px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 46px;
+    box-shadow: 0 22px 48px rgba(0,0,0,0.38);
+  }
+  .badge svg { width: 58px; height: 58px; }
+
+  .pill {
+    display: inline-flex;
+    padding: 10px 24px;
+    border-radius: 999px;
+    font-size: 19px;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #eaf6f4;
+    background: rgba(255,255,255,0.10);
+    border: 1px solid rgba(255,255,255,0.22);
+    margin-bottom: 34px;
+    backdrop-filter: blur(6px);
+  }
+
+  .headline {
+    font-size: 68px;
+    font-weight: 800;
+    line-height: 1.28;
+    letter-spacing: -0.01em;
+    color: #ffffff;
+    max-width: 1280px;
+  }
+  .headline .word {
+    display: inline-block;
+    opacity: 0;
+    margin-right: 0.28em;
+    will-change: opacity, transform;
+  }
+
+  .accentLine {
+    position: absolute;
+    left: 150px;
+    bottom: 130px;
+    width: 96px;
+    height: 6px;
+    border-radius: 4px;
+    opacity: 0.9;
+  }
+
+  #vignette {
+    position: absolute; inset: 0;
+    background: radial-gradient(1400px 900px at 50% 50%, transparent 55%, rgba(2,8,12,0.55) 100%);
+    pointer-events: none;
+  }
+
+  #grain {
+    position: absolute; inset: 0;
+    opacity: 0.05;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <svg id="backdrop" width="1920" height="1080" viewBox="0 0 1920 1080">
+    <defs>
+      <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#2a9d86" stop-opacity="0.35"/>
+        <stop offset="100%" stop-color="#157a8f" stop-opacity="0.05"/>
+      </linearGradient>
+    </defs>
+    <circle cx="1660" cy="180" r="360" fill="none" stroke="url(#ringGrad)" stroke-width="2"/>
+    <circle cx="1660" cy="180" r="280" fill="none" stroke="url(#ringGrad)" stroke-width="1.5"/>
+    <circle cx="220" cy="950" r="300" fill="none" stroke="url(#ringGrad)" stroke-width="2"/>
+    <g stroke="rgba(255,255,255,0.05)" stroke-width="1">
+      <line x1="0" y1="270" x2="1920" y2="270"/>
+      <line x1="0" y1="810" x2="1920" y2="810"/>
+    </g>
+  </svg>
+
+  <div id="brandRow">
+    <div id="brandMark">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#04221f" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M13 2 4 14h6l-1 8 9-12h-6z"/>
+      </svg>
+    </div>
+    <div id="brandText">Nextenti <span>· AI Interview Engine</span></div>
+  </div>
+
+  <div id="slideLayer"></div>
+  <div id="vignette"></div>
+  <div id="grain"></div>
+</div>
+
+<script>
+const ICONS = {
+  bolt: '<path d="M13 2 4 14h6l-1 8 9-12h-6z"/>',
+  doc: '<path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h6M9 9h2"/>',
+  check: '<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.6 2.6L16 9.5"/>',
+  refresh: '<path d="M3 12a9 9 0 0 1 15.3-6.4L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.3 6.4L3 16"/><path d="M3 21v-5h5"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>',
+  shield: '<path d="M12 3l7 3v6c0 5-3.5 7.5-7 9-3.5-1.5-7-4-7-9V6z"/><path d="M9 9l6 6M15 9l-6 6"/>',
+  star: '<path d="M12 2.5l2.9 6.1 6.6.7-4.9 4.6 1.3 6.6L12 17.3 6.1 20.5l1.3-6.6L2.5 9.3l6.6-.7z"/>'
+};
+
+const ACCENTS = ["#157a8f", "#2a9d86", "#1e3a5f", "#0e5266", "#0f6b5c", "#c2483a", "#d4a72c"];
+
+const SEGMENTS = [
+  { start: 0.00, end: 2.90,  label: "Overview",        icon: "bolt",    text: "Here's how the NAIE engine works." },
+  { start: 3.56, end: 9.52,  label: "The Questions",   icon: "doc",     text: "You'll be asked questions based on your resume and skills." },
+  { start: 10.32, end: 15.06, label: "Evaluation",      icon: "check",   text: "We evaluate your soft skills from your answers." },
+  { start: 15.86, end: 20.98, label: "One More Chance", icon: "refresh", text: "At the end of each question, you get one chance to correct your answer." },
+  { start: 21.84, end: 28.40, label: "Time Window",     icon: "clock",   text: "You'll have two to three minutes to revise or proceed." },
+  { start: 30.16, end: 36.90, label: "Integrity",       icon: "shield",  text: "ChatGPT and other AI tools are monitored and forbidden." },
+  { start: 37.56, end: 40.78, label: "Good Luck",       icon: "star",    text: "Answer carefully — all the best for your interview." }
+];
+
+const FADE = 0.62;         // seconds for enter/exit motion
+const WORD_ANIM = 0.30;    // seconds for a single word's entrance
+const layer = document.getElementById("slideLayer");
+
+function easeOutCubic(x) { return 1 - Math.pow(1 - x, 3); }
+function easeInCubic(x) { return x * x * x; }
+function clamp01(x) { return Math.max(0, Math.min(1, x)); }
+
+const slideEls = SEGMENTS.map((seg, i) => {
+  const el = document.createElement("div");
+  el.className = "slide";
+
+  const badge = document.createElement("div");
+  badge.className = "badge";
+  badge.style.background = `linear-gradient(135deg, ${ACCENTS[i]}, rgba(255,255,255,0.08))`;
+  badge.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="#eafffa" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONS[seg.icon]}</svg>`;
+  el.appendChild(badge);
+
+  const pill = document.createElement("div");
+  pill.className = "pill";
+  pill.textContent = seg.label;
+  el.appendChild(pill);
+
+  const headline = document.createElement("div");
+  headline.className = "headline";
+  const words = seg.text.split(" ");
+  words.forEach(w => {
+    const span = document.createElement("span");
+    span.className = "word";
+    span.textContent = w;
+    headline.appendChild(span);
+  });
+  el.appendChild(headline);
+
+  const line = document.createElement("div");
+  line.className = "accentLine";
+  line.style.background = ACCENTS[i];
+  el.appendChild(line);
+
+  layer.appendChild(el);
+  return { el, words: headline.querySelectorAll(".word"), seg };
+});
+
+function render(t) {
+  slideEls.forEach(({ el, words, seg }, i) => {
+    const inStart = seg.start - FADE;
+    const inEnd = seg.start;
+    const outStart = seg.end;
+    const outEnd = seg.end + FADE;
+
+    let opacity = 0, tx = 0, scale = 1;
+
+    if (t >= inEnd && t <= outStart) {
+      opacity = 1; tx = 0; scale = 1;
+    } else if (t > inStart && t < inEnd) {
+      const p = easeOutCubic(clamp01((t - inStart) / FADE));
+      opacity = p; tx = (1 - p) * 90; scale = 0.94 + p * 0.06;
+    } else if (t > outStart && t < outEnd) {
+      const p = easeInCubic(clamp01((t - outStart) / FADE));
+      opacity = 1 - p; tx = -p * 90; scale = 1 - p * 0.05;
+    } else {
+      opacity = 0;
+    }
+
+    el.style.opacity = opacity;
+    el.style.transform = `translateX(${tx}px) scale(${scale})`;
+
+    if (opacity > 0.01) {
+      const total = words.length;
+      const typeWindow = (seg.end - seg.start) * 0.8;
+      words.forEach((w, wi) => {
+        const wordStart = seg.start + (wi / total) * typeWindow;
+        const p = clamp01((t - wordStart) / WORD_ANIM);
+        const e = easeOutCubic(p);
+        w.style.opacity = t >= inEnd ? e : Math.min(e, opacity);
+        w.style.transform = `translateY(${(1 - e) * 16}px)`;
+      });
+    }
+  });
+}
+
+window.render = render;
+render(0);
+</script>
+</body>
+</html>

@@ -1,0 +1,93 @@
+.bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  background: radial-gradient(circle at 15% 15%, #3f3f46, #09090b 55%, #0a275f 100%);
+}
+
+[data-theme="light"] .bg {
+  background: radial-gradient(circle at 15% 15%, #eef4f7, #f6f8fa 55%, #e3edf7 100%);
+}
+
+.glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.35;
+  will-change: transform;
+}
+
+[data-theme="light"] .glow {
+  opacity: 0.18;
+}
+
+.glowOne {
+  width: 480px;
+  height: 480px;
+  top: -140px;
+  left: -100px;
+  background: #01617a;
+  animation: float-one 22s ease-in-out infinite;
+}
+
+.glowTwo {
+  width: 420px;
+  height: 420px;
+  bottom: -140px;
+  right: -100px;
+  background: #0a275f;
+  animation: float-two 26s ease-in-out infinite;
+}
+
+.glowThree {
+  width: 360px;
+  height: 360px;
+  top: 40%;
+  left: 45%;
+  background: #018452;
+  opacity: 0.2;
+  animation: float-three 30s ease-in-out infinite;
+}
+
+@keyframes float-one {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(60px, 50px) scale(1.15);
+  }
+}
+
+@keyframes float-two {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(-50px, -40px) scale(1.1);
+  }
+}
+
+@keyframes float-three {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  33% {
+    transform: translate(calc(-50% + 40px), calc(-50% - 30px)) scale(1.1);
+  }
+  66% {
+    transform: translate(calc(-50% - 40px), calc(-50% + 20px)) scale(0.95);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glowOne,
+  .glowTwo,
+  .glowThree {
+    animation: none;
+  }
+}

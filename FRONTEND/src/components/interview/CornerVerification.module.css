@@ -1,0 +1,261 @@
+/* Full-viewport four-corner face verification. Every size and position is a percentage or a
+   viewport-relative length, so it fits any screen from a phone to an ultrawide monitor. */
+
+.root {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 50% 40%, #14183a 0%, #0a0c1c 70%);
+  color: #fff;
+  font-family: inherit;
+  --edge: clamp(14px, 4.5vmin, 48px);
+  --dot: clamp(34px, 8vmin, 72px);
+  --face: clamp(150px, 38vmin, 340px);
+}
+
+.corner {
+  position: absolute;
+  width: var(--dot);
+  height: var(--dot);
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.05);
+  transition: border-color 0.25s, background 0.25s, transform 0.25s;
+}
+.top_left {
+  top: var(--edge);
+  left: var(--edge);
+}
+.top_right {
+  top: var(--edge);
+  right: var(--edge);
+}
+.bottom_left {
+  bottom: var(--edge);
+  left: var(--edge);
+}
+.bottom_right {
+  bottom: var(--edge);
+  right: var(--edge);
+}
+
+.cornerActive {
+  border-color: #00b4ff;
+  background: rgba(0, 180, 255, 0.18);
+  transform: scale(1.12);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+.cornerDone {
+  border-color: #34d399;
+  background: rgba(52, 211, 153, 0.22);
+}
+.cornerDot {
+  width: 34%;
+  height: 34%;
+  border-radius: 50%;
+  background: #00b4ff;
+  box-shadow: 0 0 14px 3px rgba(0, 180, 255, 0.7);
+}
+.cornerDone .cornerDot {
+  display: none;
+}
+.tick {
+  width: 56%;
+  height: 56%;
+  color: #34d399;
+}
+
+.ringSvg {
+  position: absolute;
+  inset: -6px;
+  width: calc(100% + 12px);
+  height: calc(100% + 12px);
+  transform: rotate(-90deg);
+  pointer-events: none;
+}
+.ringTrack {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.12);
+  stroke-width: 3;
+}
+.ringFill {
+  fill: none;
+  stroke: #00b4ff;
+  stroke-width: 3;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.12s linear;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(0, 180, 255, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 14px rgba(0, 180, 255, 0);
+  }
+}
+
+.center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(88vw, 560px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(10px, 2.2vmin, 20px);
+  text-align: center;
+}
+
+.faceWrap {
+  position: relative;
+  width: var(--face);
+  height: var(--face);
+  border-radius: 50%;
+  overflow: hidden;
+  border: 3px solid rgba(255, 255, 255, 0.28);
+  background: #05060f;
+  box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.05), 0 20px 60px rgba(0, 0, 0, 0.5);
+  transition: border-color 0.25s;
+}
+.faceOk {
+  border-color: #34d399;
+}
+.video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+.flash {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+  animation: flash 0.35s ease-out;
+}
+@keyframes flash {
+  0% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.step {
+  font-size: clamp(11px, 1.6vmin, 13px);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #00b4ff;
+}
+.title {
+  margin: 0;
+  font-size: clamp(18px, 3.6vmin, 30px);
+  font-weight: 800;
+  line-height: 1.2;
+}
+.hint {
+  margin: 0;
+  max-width: 44ch;
+  font-size: clamp(13px, 2vmin, 16px);
+  color: rgba(255, 255, 255, 0.72);
+  line-height: 1.5;
+}
+.warn {
+  margin: 0;
+  font-size: clamp(12px, 1.9vmin, 15px);
+  color: #fbbf24;
+}
+.error {
+  margin: 0;
+  max-width: 42ch;
+  font-size: clamp(13px, 2vmin, 16px);
+  color: #fda4af;
+  line-height: 1.5;
+}
+.btn {
+  min-height: 44px;
+  padding: 0 22px;
+  border: 0;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #0a84ff, #0066ff);
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+}
+.spinner {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #00b4ff;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.dots {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.dots li {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+}
+.dots li.on {
+  background: #00b4ff;
+}
+.dots li.done {
+  background: #34d399;
+}
+
+@media (max-height: 420px) {
+  /* Landscape phones: shrink the preview so the text still fits between the corners. */
+  .root {
+    --face: clamp(90px, 32vmin, 160px);
+  }
+  .hint {
+    display: none;
+  }
+}
+
+.skip {
+  min-height: 40px;
+  padding: 0 18px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.skip:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+.skip:focus-visible {
+  outline: 2px solid #00b4ff;
+  outline-offset: 2px;
+}
