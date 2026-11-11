@@ -1,4 +1,4 @@
-"""Krafziel Open API: 1:1 video interview rooms as a standalone service.
+"""Elzuron Open API: 1:1 video interview rooms as a standalone service.
 
 Deliberately independent of the hiring app: no database, no accounts, and no AI/OpenAI calls.
   * A server holding an API key creates rooms and gets back one signed join token per participant.
@@ -157,7 +157,7 @@ def _participant_out(request: Request, room_id: str, name: str, role: str, expir
 @router.get("")
 def info():
     return {
-        "service": "Krafziel Open API",
+        "service": "Elzuron Open API",
         "version": "1",
         "ai": False,
         "description": "1:1 video interview rooms. No accounts, no database, no AI.",

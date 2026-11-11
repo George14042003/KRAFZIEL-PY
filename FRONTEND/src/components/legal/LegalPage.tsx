@@ -24,7 +24,7 @@ export function LegalPage({
     <div className={styles.page}>
       <header className={styles.header}>
         <div className={styles.headerIn}>
-          <Link href="/" className={styles.logo} aria-label="Krafziel — home">
+          <Link href="/" className={styles.logo} aria-label="Elzuron — home">
             <BrandLogo height="clamp(26px, 8.5vw, 40px)" />
           </Link>
           <Link href="/" className={styles.back}>
@@ -71,7 +71,7 @@ export function LegalPage({
       </main>
 
       <footer className={styles.footer}>
-        <span>© {new Date().getFullYear()} Krafziel. All rights reserved.</span>
+        <span>© {new Date().getFullYear()} Elzuron. All rights reserved.</span>
         <span className={styles.footerLinks}>
           <Link href="/privacy">Privacy Policy</Link>
           <Link href="/terms">Terms of Use</Link>

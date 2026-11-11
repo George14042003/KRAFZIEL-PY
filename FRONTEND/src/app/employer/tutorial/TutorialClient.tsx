@@ -90,7 +90,7 @@ export function TutorialClient() {
                     <path d="M13 2L4 14h7l-1 8 9-12h-7z" />
                   </svg>
                 </span>
-                KRAFZIEL · AI INTERVIEW ENGINE
+                ELZURON · AI INTERVIEW ENGINE
               </div>
               <div key={step} className={local.stageBody}>
                 <span className={local.stepPill}>{current.tag}</span>

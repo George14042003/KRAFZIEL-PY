@@ -50,7 +50,7 @@ function LegacyAdminShell({ user, children }: { user: AuthUser; children: ReactN
           <Logo size={30} radius={8} />
           <div>
             <div style={{ fontSize: "14px", fontWeight: 800, letterSpacing: "-0.02em", color: palette.textPrimary }}>
-              Krafziel Admin
+              Elzuron Admin
             </div>
             <div
               style={{
@@ -73,7 +73,7 @@ function LegacyAdminShell({ user, children }: { user: AuthUser; children: ReactN
           </div>
           <Link
             href="/"
-            title="Go to the Krafziel homepage"
+            title="Go to the Elzuron homepage"
             style={{
               ...palette.secondaryButton,
               display: "flex",

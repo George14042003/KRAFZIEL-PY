@@ -11,14 +11,14 @@ const COPY: Record<
   candidate: {
     badge: "Two-Stage AI Interview Workflow",
     headingLine1: "Build Your Career with",
-    headingLine2: "Krafziel",
+    headingLine2: "Elzuron",
     subhead:
       "Apply for open roles, instantly experience our automated AI pre-screening interview, and schedule your live person-to-person interview.",
   },
   employer: {
     badge: "AI-Powered Interview Scheduling",
     headingLine1: "Hire Smarter with",
-    headingLine2: "Krafziel",
+    headingLine2: "Elzuron",
     subhead:
       "Bring in candidates sourced from anywhere, track them through your pipeline, and schedule interviews in one place.",
   },

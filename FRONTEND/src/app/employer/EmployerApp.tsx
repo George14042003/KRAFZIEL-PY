@@ -172,7 +172,7 @@ export function EmployerApp() {
           <span className={styles.eyebrow}>AI-powered interview scheduling</span>
           <span className={local.welcome}>Welcome back, {firstName}</span>
           <h1 className={local.h1}>
-            Hire smarter with <em>Krafziel</em>
+            Hire smarter with <em>Elzuron</em>
           </h1>
           <p className={local.lede}>Your hiring pipeline at a glance.</p>
           <Link href="/employer/candidates" className={local.cta}>

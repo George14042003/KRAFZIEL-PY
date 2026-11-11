@@ -3,8 +3,8 @@ import { Suspense } from "react";
 import { SignupForm } from "./SignupForm";
 
 export const metadata: Metadata = {
-  title: "Sign Up | Krafziel",
-  description: "Create a Krafziel Talent Flow account as a candidate or employer.",
+  title: "Sign Up | Elzuron",
+  description: "Create a Elzuron Talent Flow account as a candidate or employer.",
 };
 
 export default function SignupPage() {

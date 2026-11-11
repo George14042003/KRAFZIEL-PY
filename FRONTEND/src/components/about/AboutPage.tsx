@@ -51,7 +51,7 @@ export function AboutPage() {
     <div className={styles.page}>
       <header className={styles.header}>
         <div className={styles.headerIn}>
-          <Link href="/" className={styles.logo} aria-label="Krafziel — home">
+          <Link href="/" className={styles.logo} aria-label="Elzuron — home">
             <BrandLogo height="clamp(26px, 8.5vw, 40px)" />
           </Link>
           <nav className={styles.nav} aria-label="Main">
@@ -77,7 +77,7 @@ export function AboutPage() {
             We believe great hires happen <span className={styles.grad}>live.</span>
           </h1>
           <p>
-            Krafziel brings sourcing, AI screening and real face-to-face interviews into a single room, so every hiring decision is
+            Elzuron brings sourcing, AI screening and real face-to-face interviews into a single room, so every hiring decision is
             made on a real conversation.
           </p>
         </div>
@@ -95,7 +95,7 @@ export function AboutPage() {
               hours on interviews that were never going to work out.
             </p>
             <p>
-              We built Krafziel to bring the human back. AI handles the repetitive first round consistently and fairly. People handle what people do
+              We built Elzuron to bring the human back. AI handles the repetitive first round consistently and fairly. People handle what people do
               best: meeting, listening and deciding. Everything stays in one place, from the first search to the signed offer.
             </p>
           </div>
@@ -150,7 +150,7 @@ export function AboutPage() {
       </main>
 
       <footer className={styles.footer}>
-        <span>© {new Date().getFullYear()} Krafziel. All rights reserved.</span>
+        <span>© {new Date().getFullYear()} Elzuron. All rights reserved.</span>
         <span className={styles.footerLinks}>
           <Link href="/about">About us</Link>
           <Link href="/privacy">Privacy Policy</Link>

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { NewCandidateForm } from "./NewCandidateForm";
 
 export const metadata: Metadata = {
-  title: "Add Candidate | Krafziel",
+  title: "Add Candidate | Elzuron",
 };
 
 export default function NewCandidatePage() {

@@ -25,7 +25,7 @@ type AuthShellProps = {
 type HeroCopy = { headline: string; subhead: string; features: string[] };
 const HERO_OUT_MS = 170;
 
-/** Krafziel logo on a white plate; its size comes from AuthShell.module.css so it scales with the viewport. */
+/** Elzuron logo on a white plate; its size comes from AuthShell.module.css so it scales with the viewport. */
 function BrandLogoMark() {
   return <BrandLogo />;
 }
@@ -86,7 +86,7 @@ export function AuthShell({ headline, subhead, features, children, centered = fa
                 ))}
               </ul>
             </div>
-            <p className={styles.copyright}>&copy; {new Date().getFullYear()} Krafziel. All rights reserved.</p>
+            <p className={styles.copyright}>&copy; {new Date().getFullYear()} Elzuron. All rights reserved.</p>
           </aside>
 
           <div className={styles.cardCol}>

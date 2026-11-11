@@ -890,7 +890,7 @@ def submit_interview_attempt(
             detail="The answers do not match the interview questions.",
         )
     qa_pairs = [{"question": a.question, "answer": a.answer} for a in payload.answers]
-    transcript = "Krafziel Bot Interview Transcript\n\n" + "\n\n".join(
+    transcript = "Elzuron Bot Interview Transcript\n\n" + "\n\n".join(
         f"{i + 1}. Q: {p['question']}\n   A: {p['answer']}" for i, p in enumerate(qa_pairs)
     )
 
@@ -959,7 +959,7 @@ def terminate_interview_attempt(
         )
 
     qa_pairs = [{"question": a.question, "answer": a.answer} for a in payload.answers]
-    transcript = "Krafziel Bot Interview Transcript (ended early)\n\n" + (
+    transcript = "Elzuron Bot Interview Transcript (ended early)\n\n" + (
         "\n\n".join(f"{i + 1}. Q: {p['question']}\n   A: {p['answer']}" for i, p in enumerate(qa_pairs))
         or "(no answers were given before the interview ended)"
     )

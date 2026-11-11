@@ -136,7 +136,7 @@ export function LoginForm() {
       subhead={hero.subhead}
       features={hero.features}
       tone={role}
-      footnote={<>By continuing you agree to Krafziel&apos;s Terms &amp; Privacy Policy.</>}
+      footnote={<>By continuing you agree to Elzuron&apos;s Terms &amp; Privacy Policy.</>}
     >
       <RoleTabs role={role} onChange={setRole} />
 

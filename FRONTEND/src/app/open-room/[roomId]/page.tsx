@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { OpenRoomClient } from "./OpenRoomClient";
 
 export const metadata: Metadata = {
-  title: "Video room | Krafziel",
+  title: "Video room | Elzuron",
   robots: { index: false },
 };
 

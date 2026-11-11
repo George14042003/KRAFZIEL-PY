@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { VerifyEmailClient } from "./VerifyEmailClient";
 
 export const metadata: Metadata = {
-  title: "Confirm Email | Krafziel",
+  title: "Confirm Email | Elzuron",
 };
 
 export default function VerifyEmailPage() {

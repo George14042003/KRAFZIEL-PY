@@ -108,10 +108,10 @@ const NAV = [
   { href: "#pricing", label: "Pricing" },
 ];
 
-/** Krafziel logo (Krafziel) on a white plate so it reads on the dark header and footer. */
+/** Elzuron logo (Elzuron) on a white plate so it reads on the dark header and footer. */
 function Logo({ height }: { height?: number }) {
   return (
-    <Link href="/" className={styles.logo} aria-label="Krafziel">
+    <Link href="/" className={styles.logo} aria-label="Elzuron">
       <BrandLogo height={height} />
     </Link>
   );
@@ -267,7 +267,7 @@ export function HomePage() {
             Where great hires actually happen <span className={styles.grad}>live.</span>
           </h1>
           <p className={styles.lede}>
-            Krafziel Talent Flow brings sourcing, AI screening, and real, face-to-face interviews into a single room — so every hiring
+            Elzuron Talent Flow brings sourcing, AI screening, and real, face-to-face interviews into a single room — so every hiring
             decision is made on a real conversation, not just a resume.
           </p>
           <div className={styles.heroCtas}>
@@ -513,7 +513,7 @@ export function HomePage() {
           </nav>
         </div>
         <div className={`${styles.wrap} ${styles.footerBottom}`}>
-          <span>© {new Date().getFullYear()} Krafziel. All rights reserved.</span>
+          <span>© {new Date().getFullYear()} Elzuron. All rights reserved.</span>
           <span className={styles.footerLinks}>
             <Link href="/about">About us</Link>
             <Link href="/privacy">Privacy Policy</Link>

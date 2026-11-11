@@ -1316,15 +1316,15 @@
 
 /* Header logo: as large as the bar allows, stepping down as the room runs out. */
 .hdr .logo img {
-  height: 46px;
+  height: 62px;
 }
 @media (max-width: 1500px) {
   .hdr .logo img {
-    height: 38px;
+    height: 52px;
   }
 }
 @media (max-width: 600px) {
   .hdr .logo img {
-    height: 34px;
+    height: 44px;
   }
 }

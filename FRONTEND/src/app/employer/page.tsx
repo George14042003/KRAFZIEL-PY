@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { EmployerApp } from "./EmployerApp";
 
 export const metadata: Metadata = {
-  title: "Employer Dashboard | Krafziel",
+  title: "Employer Dashboard | Elzuron",
 };
 
 export default function EmployerPage() {

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { CandidateApp } from "./CandidateApp";
 
 export const metadata: Metadata = {
-  title: "Candidate Dashboard | Krafziel",
+  title: "Candidate Dashboard | Elzuron",
 };
 
 export default function CandidatePage() {

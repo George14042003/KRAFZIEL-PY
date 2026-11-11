@@ -67,7 +67,7 @@ export function CandidateApp() {
           </span>
           <p className={s.welcome}>Welcome back, {firstName}</p>
           <h1 className={s.h1}>
-            Find your <em>next role</em> with Krafziel.
+            Find your <em>next role</em> with Elzuron.
           </h1>
           <p className={s.lead}>Your interviews, offers and applications at a glance.</p>
           <a href={SEARCH_JOBS_URL} className={s.cta}>

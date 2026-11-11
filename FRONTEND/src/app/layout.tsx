@@ -64,8 +64,8 @@ const inter = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Krafziel",
-  description: "Krafziel: AI screening and live video interviews in one hiring platform.",
+  title: "Elzuron",
+  description: "Elzuron: AI screening and live video interviews in one hiring platform.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

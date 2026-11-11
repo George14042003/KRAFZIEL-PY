@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { SuperAdminLoginForm } from "./SuperAdminLoginForm";
 
 export const metadata: Metadata = {
-  title: "Admin Sign In | Krafziel",
+  title: "Admin Sign In | Elzuron",
 };
 
 export default function SuperAdminLoginPage() {

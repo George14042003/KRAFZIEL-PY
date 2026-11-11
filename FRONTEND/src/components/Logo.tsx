@@ -9,8 +9,8 @@ export function Logo({ size = 40, radius = 10 }: LogoProps) {
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src="/logo.png?v=3"
-      alt="Krafziel"
+      src="/logo.png?v=4"
+      alt="Elzuron"
       width={size}
       height={size}
       style={{ width: size, height: size, borderRadius: radius, display: "block", flexShrink: 0 }}

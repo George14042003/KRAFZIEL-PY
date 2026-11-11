@@ -19,7 +19,7 @@ def send_email(to: str, subject: str, html_body: str, text_body: str) -> None:
 
     msg = EmailMessage()
     msg["Subject"] = subject
-    msg["From"] = f"Krafziel <{SMTP_FROM_EMAIL}>"
+    msg["From"] = f"Elzuron <{SMTP_FROM_EMAIL}>"
     msg["To"] = to
     msg.set_content(text_body)
     msg.add_alternative(html_body, subtype="html")
@@ -52,7 +52,7 @@ def _wrap_html(body: str) -> str:
     <div style="font-family:Arial,Helvetica,sans-serif;max-width:480px;margin:0 auto;padding:32px;
     background:#f8fafc;border-radius:16px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:24px">
-        <span style="font-weight:800;font-size:20px;color:#0f172a">Krafziel</span>
+        <span style="font-weight:800;font-size:20px;color:#0f172a">Elzuron</span>
       </div>
       {body}
     </div>
@@ -62,21 +62,21 @@ def _wrap_html(body: str) -> str:
 def send_verification_email(to: str, full_name: str, token: str) -> None:
     link = f"{FRONTEND_URL}/verify-email?token={token}"
     html = _wrap_html(f"""
-      <h2 style="color:#0f172a;margin:0 0 12px">Welcome to Krafziel, {_e(full_name)}!</h2>
+      <h2 style="color:#0f172a;margin:0 0 12px">Welcome to Elzuron, {_e(full_name)}!</h2>
       <p style="color:#475569;font-size:14px;line-height:1.6;margin:0">
         You're almost set. Confirm your email address to activate your account.
       </p>
       {_button_html(link, "Confirm Email")}
       <p style="color:#94a3b8;font-size:12px;margin:0">
-        This link expires in 24 hours. If you didn't sign up for Krafziel, you can ignore this email.
+        This link expires in 24 hours. If you didn't sign up for Elzuron, you can ignore this email.
       </p>
     """)
     text_body = (
-        f"Welcome to Krafziel, {full_name}!\n\n"
+        f"Welcome to Elzuron, {full_name}!\n\n"
         f"Confirm your email address to activate your account:\n{link}\n\n"
-        "This link expires in 24 hours. If you didn't sign up for Krafziel, you can ignore this email."
+        "This link expires in 24 hours. If you didn't sign up for Elzuron, you can ignore this email."
     )
-    send_email(to, "Confirm your Krafziel account", html, text_body)
+    send_email(to, "Confirm your Elzuron account", html, text_body)
 
 
 def send_interview_invite_email(
@@ -131,7 +131,7 @@ def send_interview_invite_email(
       {button}
       <p style="color:#94a3b8;font-size:12px;margin:0">{note}</p>
     """)
-    send_email(to, f"Your {type_label} Interview is Scheduled - Krafziel", html, text_body)
+    send_email(to, f"Your {type_label} Interview is Scheduled - Elzuron", html, text_body)
 
 
 def send_availability_request_email(
@@ -175,14 +175,14 @@ def send_availability_request_email(
         "You won't receive the interview link until you've confirmed."
         f"{signup_text}"
     )
-    send_email(to, f"Please confirm: {type_label} Interview - Krafziel", html, text_body)
+    send_email(to, f"Please confirm: {type_label} Interview - Elzuron", html, text_body)
 
 
 def send_signup_invite_email(to: str, candidate_name: str, company_name: str, signup_url: str) -> None:
     html = _wrap_html(f"""
-      <h2 style="color:#0f172a;margin:0 0 12px">Create your Krafziel account</h2>
+      <h2 style="color:#0f172a;margin:0 0 12px">Create your Elzuron account</h2>
       <p style="color:#475569;font-size:14px;line-height:1.6;margin:0">
-        Hi {_e(candidate_name)}, {_e(company_name)} uses Krafziel for interviews. Create a free
+        Hi {_e(candidate_name)}, {_e(company_name)} uses Elzuron for interviews. Create a free
         account with <strong>this email address</strong> so you can confirm and join your
         interview securely.
       </p>
@@ -193,10 +193,10 @@ def send_signup_invite_email(to: str, candidate_name: str, company_name: str, si
     """)
     text_body = (
         f"Hi {candidate_name},\n\n"
-        f"{company_name} uses Krafziel for interviews. Create a free account with this email "
+        f"{company_name} uses Elzuron for interviews. Create a free account with this email "
         f"address ({to}) so you can confirm and join your interview: {signup_url}"
     )
-    send_email(to, f"{company_name} invited you to Krafziel", html, text_body)
+    send_email(to, f"{company_name} invited you to Elzuron", html, text_body)
 
 
 def send_application_received_email(to: str, candidate_name: str, job_title: str) -> None:
@@ -209,7 +209,7 @@ def send_application_received_email(to: str, candidate_name: str, job_title: str
       </p>
       {_button_html(link, "Track Your Applications")}
       <p style="color:#94a3b8;font-size:12px;margin:0">
-        You can check the status of this and any other applications from your Krafziel dashboard
+        You can check the status of this and any other applications from your Elzuron dashboard
         at any time.
       </p>
     """)
@@ -227,7 +227,7 @@ def send_password_reset_email(to: str, full_name: str, token: str) -> None:
     html = _wrap_html(f"""
       <h2 style="color:#0f172a;margin:0 0 12px">Reset your password</h2>
       <p style="color:#475569;font-size:14px;line-height:1.6;margin:0">
-        Hi {_e(full_name)}, we received a request to reset your Krafziel password.
+        Hi {_e(full_name)}, we received a request to reset your Elzuron password.
       </p>
       {_button_html(link, "Reset Password")}
       <p style="color:#94a3b8;font-size:12px;margin:0">
@@ -236,7 +236,7 @@ def send_password_reset_email(to: str, full_name: str, token: str) -> None:
     """)
     text_body = (
         f"Hi {full_name},\n\n"
-        f"We received a request to reset your Krafziel password:\n{link}\n\n"
+        f"We received a request to reset your Elzuron password:\n{link}\n\n"
         "This link expires in 1 hour. If you didn't request this, you can ignore this email."
     )
-    send_email(to, "Reset your Krafziel password", html, text_body)
+    send_email(to, "Reset your Elzuron password", html, text_body)

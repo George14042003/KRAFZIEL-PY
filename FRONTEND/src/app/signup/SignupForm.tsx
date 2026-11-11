@@ -62,7 +62,7 @@ const HERO_COPY: Record<Role, { headline: string; subhead: string; features: str
   },
 };
 
-const LEGAL = <>By continuing you agree to Krafziel&apos;s Terms &amp; Privacy Policy.</>;
+const LEGAL = <>By continuing you agree to Elzuron&apos;s Terms &amp; Privacy Policy.</>;
 
 export function SignupForm() {
   const router = useRouter();
@@ -278,7 +278,7 @@ export function SignupForm() {
 
         <label className={s.check}>
           <input suppressHydrationWarning type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
-          I agree to Krafziel&apos;s Terms &amp; Privacy Policy.
+          I agree to Elzuron&apos;s Terms &amp; Privacy Policy.
         </label>
 
         {error && (

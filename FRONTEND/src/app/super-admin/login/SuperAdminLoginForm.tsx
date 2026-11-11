@@ -51,7 +51,7 @@ export function SuperAdminLoginForm() {
             <h1 className={styles.display} style={{ fontWeight: 700, fontSize: "30px", letterSpacing: "-0.03em", margin: 0, color: "var(--text)" }}>
               Super Admin Console
             </h1>
-            <p style={{ fontSize: "14px", color: "var(--text-3)", margin: "8px 0 0" }}>Sign in to manage every organization on Krafziel.</p>
+            <p style={{ fontSize: "14px", color: "var(--text-3)", margin: "8px 0 0" }}>Sign in to manage every organization on Elzuron.</p>
           </div>
         </div>
 
@@ -98,7 +98,7 @@ export function SuperAdminLoginForm() {
 
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "10px" }}>
           <p style={{ fontSize: "12px", color: "var(--text-4)", margin: 0, textAlign: "center" }}>
-            Restricted access. Contact your Krafziel account owner if you need admin credentials.
+            Restricted access. Contact your Elzuron account owner if you need admin credentials.
           </p>
           <Link href="/" style={{ fontSize: "13px", color: "var(--text-3)", textDecoration: "none" }}>
             ← Back to site

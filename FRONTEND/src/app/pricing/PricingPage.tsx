@@ -46,7 +46,7 @@ export function PricingPage() {
     <AuroraCanvas>
       <div className={styles.wrap}>
       <div className={styles.nav}>
-        <Link href="/" className={styles.brandLogoPill} aria-label="Krafziel">
+        <Link href="/" className={styles.brandLogoPill} aria-label="Elzuron">
           <BrandLogo onLight height={42} />
         </Link>
         <nav aria-label="Site" className={`${aurora.glass} ${styles.navPill}`}>
@@ -134,7 +134,7 @@ export function PricingPage() {
       </section>
 
       <footer className={styles.footer}>
-        <span>© {new Date().getFullYear()} Krafziel. All rights reserved.</span>
+        <span>© {new Date().getFullYear()} Elzuron. All rights reserved.</span>
         <Link href="/">Back to home</Link>
       </footer>
       </div>

@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { LegalPage, type LegalSection } from "@/components/legal/LegalPage";
 
 export const metadata: Metadata = {
-  title: "Terms of Use | Krafziel",
-  description: "The terms that apply when you use the Krafziel hiring platform.",
+  title: "Terms of Use | Elzuron",
+  description: "The terms that apply when you use the Elzuron hiring platform.",
 };
 
 const sections: LegalSection[] = [

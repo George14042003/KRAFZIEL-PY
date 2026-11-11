@@ -87,7 +87,7 @@ export function ProfileClient() {
               </div>
               <p className={s.note}>
                 Spot something that needs updating? Contact your recruiter &mdash; these details are
-                managed by the Krafziel team.
+                managed by the Elzuron team.
               </p>
             </section>
           )

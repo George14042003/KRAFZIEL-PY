@@ -214,7 +214,7 @@ export function OpenRoomClient({ roomId }: { roomId: string }) {
   return (
     <div className={styles.page}>
       <header className={styles.bar}>
-        <span className={styles.brand}>Krafziel</span>
+        <span className={styles.brand}>Elzuron</span>
         <span className={`${styles.badge} ${status === "connected" ? styles.badgeOn : ""}`}>{TEXT[status]}</span>
       </header>
 

@@ -115,7 +115,7 @@
 }
 .brandPill img {
   display: block;
-  height: clamp(42px, 6.4vh, 60px);
+  height: clamp(56px, 8.6vh, 84px);
   width: auto;
 }
 .brandDivider {
@@ -580,13 +580,13 @@ button > .swap {
     padding-left: 16px;
   }
   .mobileBrand img {
-    height: clamp(28px, 4.4vh, 36px);
+    height: clamp(38px, 5.8vh, 50px);
     margin-left: 14px;
   }
 }
 @media (max-width: 380px) {
   .mobileBrand img {
-    height: 26px;
+    height: 36px;
   }
 }
 

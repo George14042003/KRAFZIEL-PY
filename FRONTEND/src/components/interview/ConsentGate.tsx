@@ -29,7 +29,7 @@ const CONSENT_ITEMS = [
     key: "data_storage_and_retention" as const,
     title: "Data storage & retention",
     body:
-      "I consent to Krafziel storing my application data, resume, and interview records (including " +
+      "I consent to Elzuron storing my application data, resume, and interview records (including " +
       "recordings, transcripts, and the identity snapshot above) for recruitment purposes, in " +
       "accordance with applicable data protection law. I understand I may request access to or " +
       "deletion of this data by contacting the organization I applied to.",

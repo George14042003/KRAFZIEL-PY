@@ -90,7 +90,7 @@ export function AuroraShell({
       <div className={`${styles.page} ${styles.maata}`}>
         <header className={styles.mHeader}>
           <div className={styles.mHeaderIn}>
-            <Link href={homeHref} className={styles.mLogo} aria-label="Krafziel">
+            <Link href={homeHref} className={styles.mLogo} aria-label="Elzuron">
               <BrandLogo />
             </Link>
 

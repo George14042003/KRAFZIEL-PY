@@ -242,7 +242,7 @@ def create_checkout(body: CheckoutIn, employer: models.User = Depends(require_em
         "line_items[0][price_data][currency]": CURRENCY,
         "line_items[0][price_data][unit_amount]": str(unit_amount(cat, body.plan, body.mode, body.interval)),
         "line_items[0][price_data][recurring][interval]": body.interval,
-        "line_items[0][price_data][product_data][name]": f"Krafziel {cat['plans'][body.plan]['name']} ({MODE_LABELS[body.mode]})",
+        "line_items[0][price_data][product_data][name]": f"Elzuron {cat['plans'][body.plan]['name']} ({MODE_LABELS[body.mode]})",
         "subscription_data[metadata][organization_id]": str(org_id),
         "subscription_data[metadata][plan]": body.plan,
         "subscription_data[metadata][mode]": body.mode,

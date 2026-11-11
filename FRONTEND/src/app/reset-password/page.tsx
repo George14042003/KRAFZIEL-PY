@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { ResetPasswordForm } from "./ResetPasswordForm";
 
 export const metadata: Metadata = {
-  title: "Reset Password | Krafziel",
+  title: "Reset Password | Elzuron",
 };
 
 export default function ResetPasswordPage() {

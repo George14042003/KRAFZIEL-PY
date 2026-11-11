@@ -57,7 +57,7 @@ export function AnimatedStats() {
 
   return (
     <div ref={ref} className={styles.strip}>
-      <StatCard tone={0} label="Organizations hiring on Krafziel" target={stats.organizations_count} active={active} />
+      <StatCard tone={0} label="Organizations hiring on Elzuron" target={stats.organizations_count} active={active} />
       <StatCard tone={1} label="Candidates in the pipeline" target={stats.candidates_count} active={active} suffix="+" />
       <StatCard tone={2} label="AI interviews completed" target={stats.interviews_completed_count} active={active} />
       <StatCard tone={3} label="Jobs posted" target={stats.jobs_posted_count} active={active} />

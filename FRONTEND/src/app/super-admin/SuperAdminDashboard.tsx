@@ -114,7 +114,7 @@ export function SuperAdminDashboard() {
       <AuroraPageHeader
         eyebrow="Platform"
         title="Organizations"
-        subtitle="Every tenant on Krafziel Talent Flow, and the access you have to manage them."
+        subtitle="Every tenant on Elzuron Talent Flow, and the access you have to manage them."
         actions={
           <button type="button" className={`${styles.btn} ${styles.btnAccent}`} onClick={() => setShowCreate((v) => !v)}>
             {showCreate ? "Cancel" : "+ New Organization"}

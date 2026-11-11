@@ -94,7 +94,7 @@ function SidebarShell({ user, children, fitToScreen = false, nav = EMPLOYER_NAV 
         <Link href="/" className={styles.sidebarBrand} title="Go to main website">
           <Logo size={30} radius={8} />
           <div className={styles.sidebarBrandLockup}>
-            <span className={styles.sidebarBrandName}>Krafziel</span>
+            <span className={styles.sidebarBrandName}>Elzuron</span>
             <span className={styles.sidebarBrandTagline}>Talent Flow</span>
           </div>
         </Link>
@@ -141,7 +141,7 @@ function SidebarShell({ user, children, fitToScreen = false, nav = EMPLOYER_NAV 
         <header className={styles.header}>
           <Link href="/" className={styles.mobileBrand} title="Go to main website">
             <Logo size={26} radius={7} />
-            <span className={styles.brandName}>Krafziel</span>
+            <span className={styles.brandName}>Elzuron</span>
           </Link>
 
           <div className={styles.userMenu}>
